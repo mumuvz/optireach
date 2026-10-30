@@ -1,0 +1,34 @@
+{
+  "name": "@surfaced/api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Surfaced REST API (Express 5, /api/v1)",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --clear-screen=false src/index.ts",
+    "build": "node ../../scripts/build-node-app.mjs src/index.ts dist/index.js",
+    "start": "node dist/index.js",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@surfaced/core": "*",
+    "@surfaced/shared": "*",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.7.1",
+    "helmet": "^8.3.0",
+    "pino-http": "^11.0.0",
+    "rate-limit-redis": "^6.0.1",
+    "swagger-ui-express": "^5.0.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/cookie-parser": "*",
+    "@types/cors": "*",
+    "@types/express": "*",
+    "@types/supertest": "*",
+    "@types/swagger-ui-express": "*",
+    "supertest": "^7.3.1"
+  }
+}

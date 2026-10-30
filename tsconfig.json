@@ -1,0 +1,7 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": ["test", "prisma", "e2e", "prisma.config.ts", "vitest.config.ts", "playwright.config.ts"]
+}

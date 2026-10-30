@@ -1,0 +1,199 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/inter';
+
+/*
+ * Design tokens. The dashboard uses the light theme (:root). Marketing pages wrap their content
+ * in .theme-dark, which redefines the same semantic tokens for the navy marketing palette, so
+ * every component works in both themes.
+ */
+@custom-variant dark (&:where(.theme-dark, .theme-dark *));
+
+:root {
+  --background: #f7f8fb;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --muted: #f1f4f9;
+  --muted-foreground: #586377;
+  --border: #e2e7ef;
+  --input: #d5dce7;
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --primary-foreground: #ffffff;
+  --secondary: #eef1f7;
+  --secondary-foreground: #1e293b;
+  --accent: #eef0ff;
+  --accent-foreground: #3730a3;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --success: #15803d;
+  --warning: #b45309;
+  --info: #0369a1;
+  --ring: #6366f1;
+  --chart-1: #4f46e5;
+  --chart-2: #0ea5e9;
+  --chart-3: #f59e0b;
+  --chart-4: #10b981;
+  --chart-5: #e11d48;
+  --chart-6: #8b5cf6;
+  --radius: 0.625rem;
+  color-scheme: light;
+}
+
+.theme-dark {
+  --background: #070b18;
+  --foreground: #e8ecf5;
+  --card: #0d1426;
+  --card-foreground: #e8ecf5;
+  --popover: #0f172b;
+  --popover-foreground: #e8ecf5;
+  --muted: #121a30;
+  --muted-foreground: #9aa6bd;
+  --border: #1d2741;
+  --input: #27324f;
+  --primary: #6d6af8;
+  --primary-hover: #8582ff;
+  --primary-foreground: #ffffff;
+  --secondary: #151e36;
+  --secondary-foreground: #e8ecf5;
+  --accent: #1a2242;
+  --accent-foreground: #c7c9ff;
+  --destructive: #f05252;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --info: #38bdf8;
+  --ring: #8582ff;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-ring;
+  }
+  /* Skip link becomes visible when focused with the keyboard. */
+  .skip-link {
+    @apply sr-only;
+  }
+  .skip-link:focus {
+    @apply not-sr-only fixed top-3 left-3 z-[100] rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* Leaflet puts very high z-indexes on its panes and controls (up to 1000), which otherwise paint over the app's
+   dialogs, dropdowns and popovers (z-50). Isolating the map container confines Leaflet's stacking context to z-0,
+   so overlays always sit above the map while the map's own internal layering is preserved. */
+.leaflet-container {
+  position: relative;
+  z-index: 0;
+  isolation: isolate;
+}
+
+/* Long-form text (blog posts, legal pages, rendered Markdown in Content Studio). */
+@layer components {
+  .prose-content {
+    @apply max-w-none text-[15px] leading-7 text-foreground;
+  }
+  .prose-content h1 {
+    @apply mt-8 mb-4 text-3xl font-semibold tracking-tight;
+  }
+  .prose-content h2 {
+    @apply mt-10 mb-3 text-2xl font-semibold tracking-tight;
+  }
+  .prose-content h3 {
+    @apply mt-8 mb-2 text-lg font-semibold;
+  }
+  .prose-content p {
+    @apply my-4;
+  }
+  .prose-content ul {
+    @apply my-4 list-disc space-y-1.5 pl-6;
+  }
+  .prose-content ol {
+    @apply my-4 list-decimal space-y-1.5 pl-6;
+  }
+  .prose-content a {
+    @apply font-medium text-primary underline underline-offset-2 hover:text-primary-hover;
+  }
+  .prose-content blockquote {
+    @apply my-6 border-l-4 border-primary/40 pl-4 text-muted-foreground italic;
+  }
+  .prose-content code {
+    @apply rounded bg-muted px-1.5 py-0.5 font-mono text-[13px];
+  }
+  .prose-content pre {
+    @apply my-6 overflow-x-auto rounded-lg bg-muted p-4 text-[13px];
+  }
+  .prose-content pre code {
+    @apply bg-transparent p-0;
+  }
+  .prose-content table {
+    @apply my-6 w-full border-collapse text-sm;
+  }
+  .prose-content th,
+  .prose-content td {
+    @apply border border-border px-3 py-2 text-left align-top;
+  }
+  .prose-content th {
+    @apply bg-muted font-semibold;
+  }
+  .prose-content hr {
+    @apply my-8 border-border;
+  }
+}

@@ -1,0 +1,13 @@
+node_modules
+dist
+dist-ssr
+coverage
+package-lock.json
+packages/core/src/generated
+prisma/migrations
+playwright-report
+test-results
+.tools
+var
+docs/reference/*.json
+**/.venv

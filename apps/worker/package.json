@@ -1,0 +1,18 @@
+{
+  "name": "@surfaced/worker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Surfaced background workers (BullMQ): crawling, audits, AI jobs, reports, integrations, email, maintenance",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --clear-screen=false src/index.ts",
+    "build": "node ../../scripts/build-node-app.mjs src/index.ts dist/index.js",
+    "start": "node dist/index.js",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@surfaced/core": "*",
+    "@surfaced/shared": "*",
+    "bullmq": "^6.4.0"
+  }
+}

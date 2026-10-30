@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+build/
+*.tsbuildinfo
+coverage/
+
+# Prisma generated client (regenerate with `npm run db:generate`)
+packages/core/src/generated/
+
+# Environment files (never commit secrets)
+.env
+.env.*
+!.env.example
+
+# Local runtime data
+var/
+storage/
+.tools/
+*.log
+
+# Test artifacts
+playwright-report/
+test-results/
+e2e/.auth/
+blob-report/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Optional pytrends service (Python virtual environment)
+services/pytrends/.venv/
+__pycache__/

@@ -1,0 +1,141 @@
+{
+  "capturedAt": "2026-10-22T04:58:55.061Z",
+  "report": [
+    {
+      "target": "homepage",
+      "device": "desktop",
+      "url": "https://aeoengine.ai/?ref=trustmrr",
+      "files": [
+        "homepage-desktop.png",
+        "homepage-desktop-section-01.png"
+      ],
+      "status": 403,
+      "outline": {
+        "title": "403: Forbidden",
+        "h1": [
+          "This request was blocked"
+        ],
+        "h2": [],
+        "h3": [],
+        "navLinks": [],
+        "buttons": [],
+        "sectionCount": 1,
+        "bodyFont": "Geist, -apple-system, BlinkMacSystemFont, \"Segoe UI\", \"Helvetica Neue\", Arial, sans-serif",
+        "bodyBackground": "rgb(255, 255, 255)",
+        "bodyColor": "rgb(23, 23, 23)",
+        "pageHeight": 900
+      }
+    },
+    {
+      "target": "homepage",
+      "device": "mobile",
+      "url": "https://aeoengine.ai/?ref=trustmrr",
+      "files": [
+        "homepage-mobile.png"
+      ],
+      "status": 403
+    },
+    {
+      "target": "platform-features",
+      "device": "desktop",
+      "url": "https://aeoengine.ai/platform",
+      "files": [
+        "platform-features-desktop.png",
+        "platform-features-desktop-section-01.png"
+      ],
+      "status": 403,
+      "outline": {
+        "title": "403: Forbidden",
+        "h1": [
+          "This request was blocked"
+        ],
+        "h2": [],
+        "h3": [],
+        "navLinks": [],
+        "buttons": [],
+        "sectionCount": 1,
+        "bodyFont": "Geist, -apple-system, BlinkMacSystemFont, \"Segoe UI\", \"Helvetica Neue\", Arial, sans-serif",
+        "bodyBackground": "rgb(255, 255, 255)",
+        "bodyColor": "rgb(23, 23, 23)",
+        "pageHeight": 900
+      }
+    },
+    {
+      "target": "platform-features",
+      "device": "mobile",
+      "url": "https://aeoengine.ai/platform",
+      "files": [
+        "platform-features-mobile.png"
+      ],
+      "status": 403
+    },
+    {
+      "target": "pricing",
+      "device": "desktop",
+      "url": "https://aeoengine.ai/pricing",
+      "files": [
+        "pricing-desktop.png",
+        "pricing-desktop-section-01.png"
+      ],
+      "status": 403,
+      "outline": {
+        "title": "403: Forbidden",
+        "h1": [
+          "This request was blocked"
+        ],
+        "h2": [],
+        "h3": [],
+        "navLinks": [],
+        "buttons": [],
+        "sectionCount": 1,
+        "bodyFont": "Geist, -apple-system, BlinkMacSystemFont, \"Segoe UI\", \"Helvetica Neue\", Arial, sans-serif",
+        "bodyBackground": "rgb(255, 255, 255)",
+        "bodyColor": "rgb(23, 23, 23)",
+        "pageHeight": 900
+      }
+    },
+    {
+      "target": "pricing",
+      "device": "mobile",
+      "url": "https://aeoengine.ai/pricing",
+      "files": [
+        "pricing-mobile.png"
+      ],
+      "status": 403
+    },
+    {
+      "target": "report-layout",
+      "device": "desktop",
+      "url": "https://aeoengine.ai/aeo-report-template",
+      "files": [
+        "report-layout-desktop.png",
+        "report-layout-desktop-section-01.png"
+      ],
+      "status": 403,
+      "outline": {
+        "title": "403: Forbidden",
+        "h1": [
+          "This request was blocked"
+        ],
+        "h2": [],
+        "h3": [],
+        "navLinks": [],
+        "buttons": [],
+        "sectionCount": 1,
+        "bodyFont": "Geist, -apple-system, BlinkMacSystemFont, \"Segoe UI\", \"Helvetica Neue\", Arial, sans-serif",
+        "bodyBackground": "rgb(255, 255, 255)",
+        "bodyColor": "rgb(23, 23, 23)",
+        "pageHeight": 900
+      }
+    },
+    {
+      "target": "report-layout",
+      "device": "mobile",
+      "url": "https://aeoengine.ai/aeo-report-template",
+      "files": [
+        "report-layout-mobile.png"
+      ],
+      "status": 403
+    }
+  ]
+}

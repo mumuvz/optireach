@@ -1,0 +1,2528 @@
+// Surfaced — Prisma schema for MySQL 8+.
+// Conventions:
+//   * String primary keys use CUIDs (non-sequential, not guessable).
+//   * Long URLs are stored with a SHA-256 hash column (`*Hash`) used for indexes/uniqueness,
+//     because InnoDB cannot index a full VARCHAR(2048) utf8mb4 column.
+//   * All DateTime values are written in UTC by Prisma (DATETIME(3)).
+//   * Money uses DECIMAL(10,2). JSON columns are used only for small, schema-validated
+//     structures (settings snapshots, evidence, code lists) — never for relational data.
+//   * Every tenant-owned row is reachable from a Workspace through foreign keys.
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../packages/core/src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = ""
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// ───────────────────────────── Enums ─────────────────────────────
+
+enum PlatformRole {
+  USER
+  ADMIN
+}
+
+enum WorkspaceRole {
+  OWNER
+  ADMIN
+  MEMBER
+  /// Client portal user: views results and reports, decides approvals, edits the onboarding brief.
+  CLIENT
+}
+
+enum UserTokenType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+enum JobStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+enum JobTrigger {
+  MANUAL
+  SCHEDULED
+  PUBLIC
+  SYSTEM
+}
+
+enum BackgroundJobType {
+  CRAWL
+  AUDIT
+  CONTENT_GENERATION
+  KEYWORD_SUGGESTIONS
+  VISIBILITY_RUN
+  COMPETITOR_SNAPSHOT
+  REPORT
+  INTEGRATION_SYNC
+  EMAIL
+  MAINTENANCE
+  /// Approved changes written to an external system (Business Profile, Merchant Center, CMS).
+  PUBLISH
+  /// Live URL checks (placements, publications, site changes, landing pages).
+  VERIFICATION
+  DISCOVERY
+  RANK_CHECK
+  WEB_VITALS
+  WEBHOOK_DELIVERY
+  AI_DRAFT
+  IMPORT
+  /// Competitor gap analysis of AI visibility evidence.
+  GAP_ANALYSIS
+  /// SEO comparison crawl of the project and its competitors.
+  SEO_COMPARISON
+  /// Search trends: fetch (or import) Google Trends data and compare it with the site.
+  TREND_REPORT
+}
+
+enum AuditSchedule {
+  MANUAL
+  WEEKLY
+  MONTHLY
+}
+
+enum PageSource {
+  SEED
+  SITEMAP
+  LINK
+  REDIRECT
+}
+
+enum AuditCategory {
+  CRAWLABILITY
+  METADATA
+  CONTENT_STRUCTURE
+  INTERNAL_LINKS
+  IMAGES
+  STRUCTURED_DATA
+  HTTP_ERRORS
+  PERFORMANCE
+}
+
+enum IssueSeverity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum IssueStatus {
+  OPEN
+  IGNORED
+  RESOLVED
+}
+
+enum PromptFrequency {
+  MANUAL
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum PromptStatus {
+  ACTIVE
+  PAUSED
+}
+
+enum ObservationStatus {
+  SUCCEEDED
+  FAILED
+}
+
+enum MentionEntityType {
+  BRAND
+  COMPETITOR
+}
+
+enum MentionMatchType {
+  NAME
+  ALIAS
+  DOMAIN
+  AI_ENTITY
+}
+
+enum CitationSourceType {
+  INLINE_CITATION
+  SEARCH_RESULT
+  MENTIONED_URL
+}
+
+enum Sentiment {
+  POSITIVE
+  NEUTRAL
+  NEGATIVE
+  MIXED
+}
+
+enum SearchIntent {
+  INFORMATIONAL
+  COMMERCIAL
+  TRANSACTIONAL
+  NAVIGATIONAL
+}
+
+enum ContentStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ContentVersionSource {
+  MANUAL
+  AI_GENERATION
+  AI_SECTION
+  RESTORE
+}
+
+enum KeywordPriority {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum KeywordStatus {
+  IDEA
+  PLANNED
+  IN_PROGRESS
+  PUBLISHED
+  OPTIMIZING
+  DISCARDED
+}
+
+enum KeywordSource {
+  MANUAL
+  CSV_IMPORT
+  AI_SUGGESTION
+  PROVIDER
+}
+
+enum RecommendationStatus {
+  OPEN
+  PLANNED
+  IN_PROGRESS
+  AWAITING_APPROVAL
+  COMPLETED
+  VERIFIED
+  DISMISSED
+  BLOCKED
+}
+
+enum RecommendationCategory {
+  TECHNICAL_SEO
+  CONTENT
+  AEO
+  GEO
+  STRUCTURED_DATA
+  PERFORMANCE
+  INTERNAL_LINKING
+  LOCAL_SEO
+  ECOMMERCE
+  SEARCH_PERFORMANCE
+  INTERNATIONAL
+  AUTHORITY
+  PAGE_EXPERIENCE
+}
+
+enum RecommendationSource {
+  AUDIT
+  AI_VISIBILITY
+  COMPETITOR
+  SEARCH_CONSOLE
+  LOCAL
+  COMMERCE
+  WEB_VITALS
+  RANK_TRACKING
+  SEARCH_TRENDS
+}
+
+enum BenefitLevel {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum IntegrationProvider {
+  GOOGLE_SEARCH_CONSOLE
+  GOOGLE_ANALYTICS_4
+  WORDPRESS
+  SHOPIFY
+  GOOGLE_BUSINESS_PROFILE
+  GOOGLE_MERCHANT_CENTER
+  /// Signed HTTPS webhook to the customer's own deployment or CMS pipeline.
+  CMS_WEBHOOK
+}
+
+enum IntegrationStatus {
+  CONNECTED
+  DISCONNECTED
+  ERROR
+  NEEDS_REAUTH
+}
+
+enum GscDimension {
+  DATE
+  QUERY
+  PAGE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  TRIALING
+  PAST_DUE
+  CANCELED
+  INCOMPLETE
+  UNPAID
+}
+
+enum BillingProvider {
+  NONE
+  DEV
+  STRIPE
+  RAZORPAY
+}
+
+enum BillingInterval {
+  MONTH
+  YEAR
+}
+
+enum InvoiceStatus {
+  PAID
+  OPEN
+  FAILED
+  VOID
+  REFUNDED
+}
+
+enum WebhookEventStatus {
+  RECEIVED
+  PROCESSED
+  IGNORED
+  FAILED
+}
+
+enum UsageMetric {
+  AUDIT_RUN
+  CRAWL_PAGES
+  VISIBILITY_CHECK
+  CONTENT_GENERATION
+  KEYWORD_SUGGESTION
+  COMPETITOR_SNAPSHOT
+  REPORT
+  RANK_CHECK
+  LOCAL_RANK_POINT
+  WEB_VITALS_CHECK
+  API_REQUEST
+}
+
+enum ReportStatus {
+  QUEUED
+  GENERATING
+  READY
+  FAILED
+}
+
+enum EmailStatus {
+  QUEUED
+  SENT
+  LOGGED_LOCALLY
+  FAILED
+}
+
+enum AgencyLinkStatus {
+  PENDING
+  ACTIVE
+  REVOKED
+}
+
+enum AgencyBillingMode {
+  /// The agency's plan covers the client workspace; monthly quotas are pooled with the agency.
+  AGENCY
+  /// The client workspace keeps its own subscription.
+  CLIENT
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CHANGES_REQUESTED
+  WITHDRAWN
+  /// Replaced by a newer request for the same record.
+  SUPERSEDED
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  BLOCKED
+  IN_REVIEW
+  DONE
+  CANCELLED
+}
+
+enum TaskPriority {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+// ─────────────────────── Identity & tenancy ───────────────────────
+
+model User {
+  id                  String       @id @default(cuid()) @db.VarChar(32)
+  email               String       @unique @db.VarChar(254)
+  name                String       @db.VarChar(120)
+  passwordHash        String       @db.VarChar(255)
+  emailVerifiedAt     DateTime?
+  platformRole        PlatformRole @default(USER)
+  disabledAt          DateTime?
+  disabledReason      String?      @db.VarChar(500)
+  deletionRequestedAt DateTime?
+  lastWorkspaceId     String?      @db.VarChar(32)
+  lastLoginAt         DateTime?
+  /// { auditCompleted, reportReady, weeklySummary, billing } booleans
+  notificationPrefs   Json?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  sessions                Session[]
+  tokens                  UserToken[]
+  memberships             WorkspaceMember[]
+  invitationsSent         WorkspaceInvitation[]
+  projectsCreated         Project[]
+  notifications           Notification[]
+  auditLogs               AuditLog[]
+  backgroundJobs          BackgroundJob[]
+  documentsAssigned       ContentDocument[]     @relation("DocumentAssignee")
+  documentsApproved       ContentDocument[]     @relation("DocumentApprover")
+  contentVersions         ContentVersion[]
+  recommendationsAssigned Recommendation[]      @relation("RecommendationAssignee")
+  recommendationsVerified Recommendation[]      @relation("RecommendationVerifier")
+  reportsCreated          Report[]
+  integrationsConnected   Integration[]
+  oauthStates             OAuthState[]
+  approvalsRequested      ApprovalRequest[]     @relation("ApprovalRequester")
+  approvalsDecided        ApprovalRequest[]     @relation("ApprovalDecider")
+  tasksAssigned           Task[]                @relation("TaskAssignee")
+  tasksCreated            Task[]                @relation("TaskCreator")
+  timeEntries             TaskTimeEntry[]
+  reviewReplies           ReviewReply[]         @relation("ReviewReplyAuthor")
+
+  @@index([createdAt])
+  @@map("users")
+}
+
+model Session {
+  id         String   @id @default(cuid()) @db.VarChar(32)
+  userId     String   @db.VarChar(32)
+  /// SHA-256 of the opaque session token; the raw token only lives in the HTTP-only cookie.
+  tokenHash  String   @unique @db.Char(64)
+  ipAddress  String?  @db.VarChar(64)
+  userAgent  String?  @db.VarChar(400)
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+  expiresAt  DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model UserToken {
+  id        String        @id @default(cuid()) @db.VarChar(32)
+  userId    String        @db.VarChar(32)
+  type      UserTokenType
+  tokenHash String        @unique @db.Char(64)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime      @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+  @@index([expiresAt])
+  @@map("user_tokens")
+}
+
+model Workspace {
+  id                String   @id @default(cuid()) @db.VarChar(32)
+  name              String   @db.VarChar(120)
+  slug              String   @unique @db.VarChar(140)
+  /// Agency white-label settings: { enabled, brandName, accentColor, logoUrl, supportEmail, hidePoweredBy }
+  whiteLabel        Json?
+  /// Set by platform administrators for the workspace that delivers managed services.
+  isServiceProvider Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  members          WorkspaceMember[]
+  invitations      WorkspaceInvitation[]
+  projects         Project[]
+  subscription     Subscription?
+  invoices         BillingInvoice[]
+  usageRecords     UsageRecord[]
+  integrations     Integration[]
+  reports          Report[]
+  notifications    Notification[]
+  backgroundJobs   BackgroundJob[]
+  auditLogs        AuditLog[]
+  agencyLinks      AgencyClientLink[]    @relation("AgencyLinks")
+  clientLinks      AgencyClientLink[]    @relation("ClientLinks")
+  approvalRequests ApprovalRequest[]
+  tasks            Task[]
+  providerUsage    ProviderUsageEvent[]
+  domainEvents     DomainEvent[]
+
+  @@map("workspaces")
+}
+
+model WorkspaceMember {
+  id          String        @id @default(cuid()) @db.VarChar(32)
+  workspaceId String        @db.VarChar(32)
+  userId      String        @db.VarChar(32)
+  role        WorkspaceRole @default(MEMBER)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+  @@map("workspace_members")
+}
+
+model WorkspaceInvitation {
+  id          String        @id @default(cuid()) @db.VarChar(32)
+  workspaceId String        @db.VarChar(32)
+  email       String        @db.VarChar(254)
+  role        WorkspaceRole @default(MEMBER)
+  tokenHash   String        @unique @db.Char(64)
+  invitedById String?       @db.VarChar(32)
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime      @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy User?     @relation(fields: [invitedById], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId])
+  @@index([email])
+  @@map("workspace_invitations")
+}
+
+// ───────────────────────────── Projects ─────────────────────────────
+
+model Project {
+  id              String        @id @default(cuid()) @db.VarChar(32)
+  workspaceId     String        @db.VarChar(32)
+  name            String        @db.VarChar(120)
+  description     String?       @db.Text
+  /// Null for businesses without a website (local businesses can be managed without one).
+  websiteUrl      String?       @db.VarChar(2048)
+  /// Normalized registrable host (lower-case, no "www.", punycode); null without a website.
+  domain          String?       @db.VarChar(253)
+  industry        String?       @db.VarChar(80)
+  /// ISO 3166-1 alpha-2 country codes, e.g. ["US","GB"].
+  targetCountries Json
+  /// BCP 47 language tags, e.g. ["en","de"].
+  targetLanguages Json
+  brandVoice      String?       @db.Text
+  /// Business types, presence, categories, services, products, localities, socials, goals (BusinessProfile).
+  businessProfile Json?
+  /// Alternative brand names used for mention matching.
+  brandAliases    Json?
+  /// { maxPages, maxDepth, includeSubdomains, crawlDelayMs } — validated by @surfaced/shared.
+  crawlSettings   Json
+  auditSchedule   AuditSchedule @default(MANUAL)
+  nextAuditAt     DateTime?
+  /// True only for records created by the development seed script.
+  isDemo          Boolean       @default(false)
+  createdById     String?       @db.VarChar(32)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  workspace         Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy         User?                     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  competitors       ProjectCompetitor[]
+  keywords          ProjectKeyword[]
+  keywordLists      KeywordList[]
+  topicClusters     TopicCluster[]
+  crawlJobs         CrawlJob[]
+  auditRuns         AuditRun[]
+  issues            AuditIssue[]
+  prompts           AiPrompt[]
+  visibilityRuns    AiVisibilityRun[]
+  observations      AiVisibilityObservation[]
+  contentBriefs     ContentBrief[]
+  documents         ContentDocument[]
+  recommendations   Recommendation[]
+  answerabilityRuns AnswerabilityRun[]
+  integrations      Integration[]
+  gscMetrics        SearchConsoleMetric[]
+  reports           Report[]
+  snapshots         CompetitorSnapshot[]
+  gapAnalyses       VisibilityGapAnalysis[]
+  seoComparisons    SeoComparison[]
+  trendReports      TrendReport[]
+  trendImports      TrendCsvImport[]
+  trendQueries      TrendSavedQuery[]
+  locations         BusinessLocation[]
+  localQueries      LocalRankQuery[]
+  localScans        LocalRankScan[]
+  businessResearch  LocalBusinessResearch[]
+  profileSnapshots  BusinessProfileSnapshot[]
+  profileMetrics    BusinessProfileMetric[]
+  reviews           BusinessReview[]
+  reviewReplies     ReviewReply[]
+  reviewSummaries   BusinessReviewSummary[]
+  profileChanges    ProfileChangeRequest[]
+  localPosts        LocalPost[]
+  products          MerchantProduct[]
+  feedImports       ProductFeedImport[]
+  backgroundJobs    BackgroundJob[]
+  usageRecords      UsageRecord[]
+  approvals         ApprovalRequest[]
+  tasks             Task[]
+
+  @@unique([workspaceId, domain])
+  @@index([workspaceId, createdAt])
+  @@index([auditSchedule, nextAuditAt])
+  @@map("projects")
+}
+
+model ProjectCompetitor {
+  id          String    @id @default(cuid()) @db.VarChar(32)
+  projectId   String    @db.VarChar(32)
+  name        String    @db.VarChar(120)
+  /// Null for local competitors without a known website.
+  domain      String?   @db.VarChar(253)
+  aliases     Json?
+  notes       String?   @db.Text
+  /// WEBSITE (added with a domain) or LOCAL (a business seen in local results or added from Maps).
+  kind        String    @default("WEBSITE") @db.VarChar(10)
+  /// SUGGESTED (discovered, not confirmed), CONFIRMED or DISMISSED. Only confirmed ones are used by other features.
+  status      String    @default("CONFIRMED") @db.VarChar(12)
+  /// MANUAL or DISCOVERED (from local rank scans).
+  source      String    @default("MANUAL") @db.VarChar(12)
+  locationId  String?   @db.VarChar(32)
+  placeId     String?   @db.VarChar(200)
+  cid         String?   @db.VarChar(40)
+  category    String?   @db.VarChar(120)
+  address     String?   @db.VarChar(300)
+  latitude    Decimal?  @db.Decimal(10, 7)
+  longitude   Decimal?  @db.Decimal(10, 7)
+  /// Publicly displayed rating and review count at lastSeenAt (from a provider observation).
+  rating      Float?
+  reviewCount Int?
+  firstSeenAt DateTime?
+  lastSeenAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  project   Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  location  BusinessLocation?    @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  prompts   AiPromptCompetitor[]
+  mentions  BrandMention[]
+  citations AiCitation[]
+  snapshots CompetitorSnapshot[]
+
+  @@unique([projectId, domain])
+  @@unique([projectId, placeId])
+  @@index([projectId, status])
+  @@index([locationId])
+  @@map("project_competitors")
+}
+
+model CompetitorSnapshot {
+  id            String    @id @default(cuid()) @db.VarChar(32)
+  projectId     String    @db.VarChar(32)
+  competitorId  String    @db.VarChar(32)
+  status        JobStatus @default(QUEUED)
+  /// [{ url, statusCode, title, metaDescription, h1, wordCount, schemaTypes[], hasFaqContent }]
+  pages         Json?
+  robotsAllowed Boolean?
+  errorMessage  String?   @db.Text
+  fetchedAt     DateTime?
+  createdAt     DateTime  @default(now())
+
+  project    Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  competitor ProjectCompetitor @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+
+  @@index([competitorId, createdAt])
+  @@index([projectId, createdAt])
+  @@map("competitor_snapshots")
+}
+
+/// Why AI answers recommend other brands and what to do about it (see GapAnalysisResult in @surfaced/shared).
+/// Built from stored observations, the latest crawl and live checks of public pages; never estimated.
+model VisibilityGapAnalysis {
+  id           String    @id @default(cuid()) @db.VarChar(32)
+  projectId    String    @db.VarChar(32)
+  status       JobStatus @default(QUEUED)
+  createdById  String?   @db.VarChar(32)
+  result       Json?
+  errorMessage String?   @db.Text
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  createdAt    DateTime  @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+  @@map("visibility_gap_analyses")
+}
+
+/// Your site and up to five competitors crawled the same way and checked with the same audit rules
+/// (see SeoComparisonResult in @surfaced/shared). Only the summary is stored, not per-page rows.
+model SeoComparison {
+  id            String    @id @default(cuid()) @db.VarChar(32)
+  projectId     String    @db.VarChar(32)
+  status        JobStatus @default(QUEUED)
+  createdById   String?   @db.VarChar(32)
+  /// Competitor ids included, in display order.
+  competitorIds Json
+  result        Json?
+  errorMessage  String?   @db.Text
+  startedAt     DateTime?
+  finishedAt    DateTime?
+  createdAt     DateTime  @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+  @@map("seo_comparisons")
+}
+
+/// One Google Trends comparison (a "trend query") and its comparison with the site. The data itself lives in the
+/// normalized trend_observations, trend_regional_interest and trend_related_items tables; "data" is only set on
+/// reports created before those tables existed.
+model TrendReport {
+  id                String     @id @default(cuid()) @db.VarChar(32)
+  projectId         String     @db.VarChar(32)
+  status            JobStatus  @default(QUEUED)
+  /// Provider: PYTRENDS, DATAFORSEO, GOOGLE_TRENDS_API, CSV_IMPORT or FIXTURE. One provider per report, never mixed.
+  source            String     @db.VarChar(20)
+  trigger           JobTrigger @default(MANUAL)
+  createdById       String?    @db.VarChar(32)
+  savedQueryId      String?    @db.VarChar(32)
+  keywords          Json
+  country           String?    @db.Char(2)
+  /// ISO 3166-2 sub-region, e.g. IN-GJ.
+  region            String?    @db.VarChar(10)
+  /// City filter: the terms mention this city ("wedding card surat"); Google Trends has no city filter.
+  city              String?    @db.VarChar(60)
+  language          String     @default("en") @db.VarChar(12)
+  timeRange         String     @db.VarChar(20)
+  category          Int        @default(0)
+  /// Requested data types (TrendDataType[]).
+  include           Json?
+  suggestPlacements Boolean    @default(true)
+  /// sha256 of provider, terms, place, period, category and data types; equal keys may share fetched data.
+  cacheKey          String?    @db.Char(64)
+  /// The report whose fetched data was copied (cache hit). Never exposed across tenants.
+  cachedFromId      String?    @db.VarChar(32)
+  /// True when some requested data could not be fetched; see limitations.
+  partial           Boolean    @default(false)
+  limitations       Json?
+  /// Legacy: interest over time and related queries (TrendData) of reports created before normalization.
+  data              Json?
+  analysis          Json?
+  errorMessage      String?    @db.Text
+  /// When the provider returned the data (kept from the original fetch on cache hits).
+  fetchedAt         DateTime?
+  expiresAt         DateTime?
+  startedAt         DateTime?
+  finishedAt        DateTime?
+  createdAt         DateTime   @default(now())
+
+  project      Project                 @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  savedQuery   TrendSavedQuery?        @relation(fields: [savedQueryId], references: [id], onDelete: SetNull)
+  observations TrendObservation[]
+  regional     TrendRegionalInterest[]
+  relatedItems TrendRelatedItem[]
+  csvImports   TrendCsvImport[]
+
+  @@index([projectId, createdAt])
+  @@index([cacheKey, status, expiresAt])
+  @@index([savedQueryId])
+  @@map("trend_reports")
+}
+
+/// Interest over time: one row per term and period. Relative interest (0-100 within this report), not counts.
+model TrendObservation {
+  id          String   @id @default(cuid()) @db.VarChar(32)
+  reportId    String   @db.VarChar(32)
+  keyword     String   @db.VarChar(100)
+  periodStart DateTime
+  /// Null where the provider had no data for the period.
+  value       Float?
+  isPartial   Boolean  @default(false)
+
+  report TrendReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId, keyword, periodStart])
+  @@map("trend_observations")
+}
+
+/// Interest by region: one row per term and place.
+model TrendRegionalInterest {
+  id         String  @id @default(cuid()) @db.VarChar(32)
+  reportId   String  @db.VarChar(32)
+  keyword    String  @db.VarChar(100)
+  geoCode    String? @db.VarChar(20)
+  regionName String  @db.VarChar(150)
+  /// COUNTRY, REGION, CITY or DMA.
+  resolution String  @db.VarChar(10)
+  /// share: several terms, values are each place's split between them. single: 100 = the top place.
+  comparison String  @default("single") @db.VarChar(10)
+  value      Float?
+
+  report TrendReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId, keyword])
+  @@map("trend_regional_interest")
+}
+
+/// Related queries and topics (top and rising) for one term.
+model TrendRelatedItem {
+  id        String  @id @default(cuid()) @db.VarChar(32)
+  reportId  String  @db.VarChar(32)
+  /// The term these relate to; null when an imported file did not say.
+  keyword   String? @db.VarChar(100)
+  /// QUERY or TOPIC.
+  kind      String  @db.VarChar(10)
+  /// TOP or RISING.
+  list      String  @db.VarChar(10)
+  rank      Int
+  label     String  @db.VarChar(255)
+  topicType String? @db.VarChar(80)
+  /// TOP: relative popularity (100 = most searched related item).
+  value     Float?
+  /// RISING: growth label, "Breakout" or "+250%".
+  growth    String? @db.VarChar(20)
+
+  report TrendReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId, kind, list, rank])
+  @@map("trend_related_items")
+}
+
+/// A CSV file imported from Google Trends: what it was and where it went.
+model TrendCsvImport {
+  id          String   @id @default(cuid()) @db.VarChar(32)
+  projectId   String   @db.VarChar(32)
+  reportId    String?  @db.VarChar(32)
+  createdById String?  @db.VarChar(32)
+  fileName    String   @db.VarChar(200)
+  /// interest_over_time, interest_by_region, related_queries or related_topics.
+  kind        String   @db.VarChar(30)
+  keywords    Json
+  country     String?  @db.Char(2)
+  region      String?  @db.VarChar(10)
+  timeRange   String?  @db.VarChar(20)
+  /// Bracketed text from Google's headers (place or dates), kept as written.
+  headerNote  String?  @db.VarChar(120)
+  rowCount    Int
+  createdAt   DateTime @default(now())
+
+  project Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  report  TrendReport? @relation(fields: [reportId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, createdAt])
+  @@index([reportId])
+  @@map("trend_csv_imports")
+}
+
+/// Outcome of each provider request (for provider status, errors and rate-limit visibility). No secrets.
+model TrendProviderEvent {
+  id          String   @id @default(cuid()) @db.VarChar(32)
+  provider    String   @db.VarChar(20)
+  operation   String   @db.VarChar(40)
+  /// SUCCESS, CACHE_HIT, NO_DATA, RATE_LIMITED, TIMEOUT, DISALLOWED, NOT_CONFIGURED, UNAVAILABLE or ERROR.
+  outcome     String   @db.VarChar(20)
+  message     String?  @db.VarChar(500)
+  durationMs  Int?
+  workspaceId String?  @db.VarChar(32)
+  projectId   String?  @db.VarChar(32)
+  reportId    String?  @db.VarChar(32)
+  createdAt   DateTime @default(now())
+
+  @@index([provider, createdAt])
+  @@index([workspaceId, createdAt])
+  @@map("trend_provider_events")
+}
+
+/// A saved comparison, refreshed on a schedule when one is set.
+model TrendSavedQuery {
+  id           String    @id @default(cuid()) @db.VarChar(32)
+  projectId    String    @db.VarChar(32)
+  name         String    @db.VarChar(120)
+  keywords     Json
+  country      String?   @db.Char(2)
+  region       String?   @db.VarChar(10)
+  city         String?   @db.VarChar(60)
+  timeRange    String    @db.VarChar(20)
+  category     Int       @default(0)
+  /// Live provider; null = the default provider at run time.
+  provider     String?   @db.VarChar(20)
+  /// NONE, WEEKLY or MONTHLY.
+  schedule     String    @default("NONE") @db.VarChar(10)
+  nextRunAt    DateTime?
+  lastReportId String?   @db.VarChar(32)
+  createdById  String?   @db.VarChar(32)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  project Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  reports TrendReport[]
+
+  @@unique([projectId, name])
+  @@index([schedule, nextRunAt])
+  @@map("trend_saved_queries")
+}
+
+model CrawlJob {
+  id                String     @id @default(cuid()) @db.VarChar(32)
+  /// Null only for anonymous free audits (see PublicAudit).
+  projectId         String?    @db.VarChar(32)
+  status            JobStatus  @default(QUEUED)
+  trigger           JobTrigger @default(MANUAL)
+  startUrl          String     @db.VarChar(2048)
+  /// Snapshot of the effective limits used for this crawl.
+  settings          Json
+  pagesDiscovered   Int        @default(0)
+  pagesCrawled      Int        @default(0)
+  pagesFailed       Int        @default(0)
+  progress          Int        @default(0)
+  /// { status, url, sitemaps[], disallowRules, crawlDelay, error }
+  robotsInfo        Json?
+  /// { sitemaps[{url,status,urlCount,error}], totalUrls, truncated }
+  sitemapInfo       Json?
+  /// Crawl outcome used by the audit: { rootUrl, httpsRedirect, blockedByRobots[] (first 500), blockedByRobotsTotal,
+  /// loopUrlsSkipped, stoppedReason, limitReached }
+  summary           Json?
+  cancelRequestedAt DateTime?
+  errorMessage      String?    @db.Text
+  createdById       String?    @db.VarChar(32)
+  startedAt         DateTime?
+  finishedAt        DateTime?
+  createdAt         DateTime   @default(now())
+  isDemo            Boolean    @default(false)
+
+  project     Project?      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  pages       CrawledPage[]
+  links       CrawledLink[]
+  auditRuns   AuditRun[]
+  publicAudit PublicAudit?
+
+  @@index([projectId, createdAt])
+  @@index([status])
+  @@map("crawl_jobs")
+}
+
+model CrawledPage {
+  id                 String     @id @default(cuid()) @db.VarChar(32)
+  crawlJobId         String     @db.VarChar(32)
+  url                String     @db.VarChar(2048)
+  urlHash            String     @db.Char(64)
+  finalUrl           String?    @db.VarChar(2048)
+  depth              Int
+  source             PageSource
+  statusCode         Int?
+  contentType        String?    @db.VarChar(160)
+  responseTimeMs     Int?
+  contentLength      Int?
+  /// [{ url, statusCode }] hops before the final response.
+  redirectChain      Json?
+  isHtml             Boolean    @default(false)
+  isIndexable        Boolean    @default(false)
+  indexabilityReason String?    @db.VarChar(255)
+  title              String?    @db.VarChar(1024)
+  metaDescription    String?    @db.Text
+  canonicalUrl       String?    @db.VarChar(2048)
+  metaRobots         String?    @db.VarChar(255)
+  xRobotsTag         String?    @db.VarChar(255)
+  lang               String?    @db.VarChar(35)
+  h1                 String?    @db.VarChar(1024)
+  h1Count            Int        @default(0)
+  /// [{ level, text }] capped at 100 entries.
+  headings           Json?
+  wordCount          Int?
+  imagesTotal        Int?
+  imagesMissingAlt   Int?
+  internalLinksOut   Int?
+  externalLinksOut   Int?
+  inlinksCount       Int        @default(0)
+  /// { types[], blocks, errors[{ index, message }] }
+  structuredData     Json?
+  /// { hasViewport, ogTitle, ogDescription, compressed, questionHeadings, hasFaqContent }
+  signals            Json?
+  contentHash        String?    @db.VarChar(32)
+  inSitemap          Boolean    @default(false)
+  fetchError         String?    @db.VarChar(500)
+  fetchedAt          DateTime   @default(now())
+
+  crawlJob    CrawlJob               @relation(fields: [crawlJobId], references: [id], onDelete: Cascade)
+  linksOut    CrawledLink[]
+  occurrences AuditIssueOccurrence[]
+
+  @@unique([crawlJobId, urlHash])
+  @@index([crawlJobId, statusCode])
+  @@index([crawlJobId, isIndexable])
+  @@map("crawled_pages")
+}
+
+model CrawledLink {
+  crawlJobId String  @db.VarChar(32)
+  fromPageId String  @db.VarChar(32)
+  toUrlHash  String  @db.Char(64)
+  toUrl      String  @db.VarChar(2048)
+  anchorText String? @db.VarChar(255)
+  nofollow   Boolean @default(false)
+
+  crawlJob CrawlJob    @relation(fields: [crawlJobId], references: [id], onDelete: Cascade)
+  fromPage CrawledPage @relation(fields: [fromPageId], references: [id], onDelete: Cascade)
+
+  @@id([crawlJobId, fromPageId, toUrlHash])
+  @@index([crawlJobId, toUrlHash])
+  @@index([fromPageId])
+  @@map("crawled_links")
+}
+
+model AuditRun {
+  id             String    @id @default(cuid()) @db.VarChar(32)
+  projectId      String?   @db.VarChar(32)
+  crawlJobId     String    @db.VarChar(32)
+  status         JobStatus @default(QUEUED)
+  /// Diagnostic index 0–100 computed by this application (not a search-engine score).
+  score          Int?
+  categoryScores Json?
+  /// { total, bySeverity{...}, byCategory{...} }
+  issueCounts    Json?
+  pagesAnalyzed  Int?
+  scoringVersion String    @db.VarChar(20)
+  /// Snapshot of category weights and severity points used.
+  weights        Json
+  errorMessage   String?   @db.Text
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  isDemo         Boolean   @default(false)
+
+  project     Project?               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  crawlJob    CrawlJob               @relation(fields: [crawlJobId], references: [id], onDelete: Cascade)
+  occurrences AuditIssueOccurrence[]
+
+  @@index([projectId, createdAt])
+  @@index([crawlJobId])
+  @@map("audit_runs")
+}
+
+model AuditIssue {
+  id              String        @id @default(cuid()) @db.VarChar(32)
+  projectId       String        @db.VarChar(32)
+  ruleId          String        @db.VarChar(64)
+  category        AuditCategory
+  severity        IssueSeverity
+  /// SHA-256(ruleId + affected URL + rule-specific key) — stable identity across audits.
+  fingerprint     String        @db.Char(64)
+  url             String?       @db.VarChar(2048)
+  urlHash         String?       @db.Char(64)
+  title           String        @db.VarChar(255)
+  description     String        @db.Text
+  evidence        Json?
+  suggestedFix    String        @db.Text
+  status          IssueStatus   @default(OPEN)
+  firstDetectedAt DateTime
+  lastDetectedAt  DateTime
+  firstAuditRunId String?       @db.VarChar(32)
+  lastAuditRunId  String?       @db.VarChar(32)
+  resolvedAt      DateTime?
+  ignoredAt       DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  project     Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  occurrences AuditIssueOccurrence[]
+
+  @@unique([projectId, fingerprint])
+  @@index([projectId, status, severity])
+  @@index([projectId, category])
+  @@index([projectId, ruleId])
+  @@index([projectId, urlHash])
+  @@index([lastAuditRunId])
+  @@map("audit_issues")
+}
+
+model AuditIssueOccurrence {
+  auditRunId    String        @db.VarChar(32)
+  issueId       String        @db.VarChar(32)
+  crawledPageId String?       @db.VarChar(32)
+  severity      IssueSeverity
+
+  auditRun AuditRun     @relation(fields: [auditRunId], references: [id], onDelete: Cascade)
+  issue    AuditIssue   @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  page     CrawledPage? @relation(fields: [crawledPageId], references: [id], onDelete: SetNull)
+
+  @@id([auditRunId, issueId])
+  @@index([issueId])
+  @@index([crawledPageId])
+  @@map("audit_issue_occurrences")
+}
+
+model PublicAudit {
+  id              String    @id @default(cuid()) @db.VarChar(32)
+  url             String    @db.VarChar(2048)
+  domain          String    @db.VarChar(253)
+  /// SHA-256(ip + server secret) — used only for abuse rate limiting.
+  ipHash          String    @db.Char(64)
+  accessTokenHash String    @db.Char(64)
+  crawlJobId      String?   @unique @db.VarChar(32)
+  status          JobStatus @default(QUEUED)
+  /// { score, categoryScores, issueCounts, topIssues[], pagesAnalyzed, limitations[] }
+  result          Json?
+  errorMessage    String?   @db.Text
+  createdAt       DateTime  @default(now())
+  expiresAt       DateTime
+
+  crawlJob CrawlJob? @relation(fields: [crawlJobId], references: [id], onDelete: SetNull)
+
+  @@index([ipHash, createdAt])
+  @@index([expiresAt])
+  @@map("public_audits")
+}
+
+// ───────────────────────── AI visibility (AEO/GEO) ─────────────────────────
+
+model AiPrompt {
+  id          String          @id @default(cuid()) @db.VarChar(32)
+  projectId   String          @db.VarChar(32)
+  text        String          @db.VarChar(1000)
+  intent      String?         @db.VarChar(60)
+  country     String          @db.Char(2)
+  /// City the answer should be local to; providers that cannot use it say so in the observation's limitations.
+  city        String?         @db.VarChar(120)
+  language    String          @db.VarChar(12)
+  targetBrand String          @db.VarChar(120)
+  /// Provider keys (e.g. ["openai_web_search"]) validated against the provider registry.
+  providers   Json
+  frequency   PromptFrequency @default(WEEKLY)
+  status      PromptStatus    @default(ACTIVE)
+  lastRunAt   DateTime?
+  nextRunAt   DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  project      Project                   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  competitors  AiPromptCompetitor[]
+  observations AiVisibilityObservation[]
+
+  @@index([projectId, status])
+  @@index([status, frequency, nextRunAt])
+  @@map("ai_prompts")
+}
+
+model AiPromptCompetitor {
+  promptId     String @db.VarChar(32)
+  competitorId String @db.VarChar(32)
+
+  prompt     AiPrompt          @relation(fields: [promptId], references: [id], onDelete: Cascade)
+  competitor ProjectCompetitor @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+
+  @@id([promptId, competitorId])
+  @@index([competitorId])
+  @@map("ai_prompt_competitors")
+}
+
+model AiVisibilityRun {
+  id               String     @id @default(cuid()) @db.VarChar(32)
+  projectId        String     @db.VarChar(32)
+  trigger          JobTrigger @default(MANUAL)
+  status           JobStatus  @default(QUEUED)
+  promptCount      Int        @default(0)
+  observationCount Int        @default(0)
+  successCount     Int        @default(0)
+  failureCount     Int        @default(0)
+  errorMessage     String?    @db.Text
+  startedAt        DateTime?
+  finishedAt       DateTime?
+  createdAt        DateTime   @default(now())
+  isDemo           Boolean    @default(false)
+
+  project      Project                   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  observations AiVisibilityObservation[]
+
+  @@index([projectId, createdAt])
+  @@map("ai_visibility_runs")
+}
+
+model AiVisibilityObservation {
+  id                  String            @id @default(cuid()) @db.VarChar(32)
+  runId               String            @db.VarChar(32)
+  promptId            String            @db.VarChar(32)
+  projectId           String            @db.VarChar(32)
+  provider            String            @db.VarChar(40)
+  model               String?           @db.VarChar(80)
+  country             String            @db.Char(2)
+  city                String?           @db.VarChar(120)
+  language            String            @db.VarChar(12)
+  promptText          String            @db.VarChar(1000)
+  /// API, LICENSED_PROVIDER, MANUAL or DEMO (CAPTURE_METHODS).
+  captureMethod       String            @default("API") @db.VarChar(20)
+  /// What this observation can and cannot show (location applied, approximation of the consumer product…).
+  limitations         Json?
+  /// Who entered a manual observation.
+  capturedById        String?           @db.VarChar(32)
+  note                String?           @db.VarChar(1000)
+  status              ObservationStatus
+  /// True when produced by the labeled development mock provider.
+  isDemo              Boolean           @default(false)
+  attempts            Int               @default(1)
+  errorCode           String?           @db.VarChar(60)
+  errorMessage        String?           @db.VarChar(1000)
+  /// Provider response with secrets removed and long fields truncated.
+  rawResponse         Json?
+  answerText          String?           @db.MediumText
+  brandMentioned      Boolean           @default(false)
+  brandCited          Boolean           @default(false)
+  /// 1-based order of the brand among all entities mentioned (null if not mentioned).
+  brandRank           Int?
+  sentiment           Sentiment?
+  /// "AI_ESTIMATE" or "DEMO_FIXTURE"; sentiment is never presented as objective fact.
+  sentimentSource     String?           @db.VarChar(20)
+  sentimentConfidence Float?
+  latencyMs           Int?
+  usage               Json?
+  /// runId:promptId:provider — prevents duplicate rows when a job is retried.
+  idempotencyKey      String            @unique @db.VarChar(120)
+  observedAt          DateTime          @default(now())
+
+  run       AiVisibilityRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  prompt    AiPrompt        @relation(fields: [promptId], references: [id], onDelete: Cascade)
+  project   Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  mentions  BrandMention[]
+  citations AiCitation[]
+
+  @@index([projectId, observedAt])
+  @@index([projectId, provider, observedAt])
+  @@index([promptId, observedAt])
+  @@index([runId])
+  @@map("ai_visibility_observations")
+}
+
+model BrandMention {
+  id            String            @id @default(cuid()) @db.VarChar(32)
+  observationId String            @db.VarChar(32)
+  entityType    MentionEntityType
+  competitorId  String?           @db.VarChar(32)
+  entityName    String            @db.VarChar(120)
+  matchedText   String            @db.VarChar(255)
+  matchType     MentionMatchType
+  /// Character offset of the first match in the normalized answer.
+  position      Int
+  /// 1-based order among all entities mentioned in the answer.
+  rank          Int
+  snippet       String?           @db.VarChar(500)
+  confidence    Float?
+
+  observation AiVisibilityObservation @relation(fields: [observationId], references: [id], onDelete: Cascade)
+  competitor  ProjectCompetitor?      @relation(fields: [competitorId], references: [id], onDelete: SetNull)
+
+  @@index([observationId])
+  @@index([competitorId])
+  @@map("brand_mentions")
+}
+
+model AiCitation {
+  id            String             @id @default(cuid()) @db.VarChar(32)
+  observationId String             @db.VarChar(32)
+  url           String             @db.VarChar(2048)
+  domain        String             @db.VarChar(253)
+  title         String?            @db.VarChar(500)
+  position      Int
+  sourceType    CitationSourceType
+  isOwnedDomain Boolean            @default(false)
+  competitorId  String?            @db.VarChar(32)
+
+  observation AiVisibilityObservation @relation(fields: [observationId], references: [id], onDelete: Cascade)
+  competitor  ProjectCompetitor?      @relation(fields: [competitorId], references: [id], onDelete: SetNull)
+
+  @@index([observationId])
+  @@index([domain])
+  @@index([competitorId])
+  @@map("ai_citations")
+}
+
+// ───────────────────────────── Content ─────────────────────────────
+
+model ContentBrief {
+  id                String       @id @default(cuid()) @db.VarChar(32)
+  projectId         String       @db.VarChar(32)
+  title             String       @db.VarChar(255)
+  primaryKeyword    String       @db.VarChar(200)
+  secondaryKeywords Json?
+  searchIntent      SearchIntent @default(INFORMATIONAL)
+  targetAudience    String?      @db.VarChar(500)
+  country           String       @db.Char(2)
+  language          String       @db.VarChar(12)
+  brandVoice        String?      @db.Text
+  targetUrl         String?      @db.VarChar(2048)
+  wordCountTarget   Int?
+  notes             String?      @db.Text
+  /// [{ heading, level, points[] }]
+  outline           Json?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  project   Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  documents ContentDocument[]
+
+  @@index([projectId, createdAt])
+  @@map("content_briefs")
+}
+
+model ContentDocument {
+  id                String        @id @default(cuid()) @db.VarChar(32)
+  projectId         String        @db.VarChar(32)
+  briefId           String?       @db.VarChar(32)
+  title             String        @db.VarChar(255)
+  status            ContentStatus @default(DRAFT)
+  wordCount         Int           @default(0)
+  latestVersion     Int           @default(0)
+  targetUrl         String?       @db.VarChar(2048)
+  assigneeId        String?       @db.VarChar(32)
+  approvedById      String?       @db.VarChar(32)
+  reviewRequestedAt DateTime?
+  approvedAt        DateTime?
+  publishedAt       DateTime?
+  archivedAt        DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  project    Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  brief      ContentBrief?    @relation(fields: [briefId], references: [id], onDelete: SetNull)
+  assignee   User?            @relation("DocumentAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  approvedBy User?            @relation("DocumentApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  versions   ContentVersion[]
+
+  @@index([projectId, status])
+  @@index([projectId, updatedAt])
+  @@map("content_documents")
+}
+
+model ContentVersion {
+  id              String               @id @default(cuid()) @db.VarChar(32)
+  documentId      String               @db.VarChar(32)
+  versionNumber   Int
+  title           String               @db.VarChar(255)
+  /// Markdown body.
+  body            String               @db.MediumText
+  outline         Json?
+  metaTitle       String?              @db.VarChar(255)
+  metaDescription String?              @db.VarChar(500)
+  /// [{ question, answer }]
+  faqs            Json?
+  /// [{ url, anchorText, reason }]
+  internalLinks   Json?
+  schemaJsonLd    Json?
+  wordCount       Int                  @default(0)
+  source          ContentVersionSource @default(MANUAL)
+  provider        String?              @db.VarChar(40)
+  model           String?              @db.VarChar(80)
+  /// True when produced by the labeled development (non-AI) adapter.
+  isDevAdapter    Boolean              @default(false)
+  /// Background job that produced this version — unique to keep retries idempotent.
+  generationJobId String?              @unique @db.VarChar(32)
+  note            String?              @db.VarChar(500)
+  createdById     String?              @db.VarChar(32)
+  createdAt       DateTime             @default(now())
+
+  document  ContentDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  createdBy User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([documentId, versionNumber])
+  @@map("content_versions")
+}
+
+// ───────────────────────────── Keywords ─────────────────────────────
+
+model KeywordList {
+  id          String   @id @default(cuid()) @db.VarChar(32)
+  projectId   String   @db.VarChar(32)
+  name        String   @db.VarChar(120)
+  description String?  @db.VarChar(500)
+  createdAt   DateTime @default(now())
+
+  project  Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  keywords ProjectKeyword[]
+
+  @@unique([projectId, name])
+  @@map("keyword_lists")
+}
+
+model TopicCluster {
+  id          String   @id @default(cuid()) @db.VarChar(32)
+  projectId   String   @db.VarChar(32)
+  name        String   @db.VarChar(120)
+  description String?  @db.VarChar(500)
+  pillarUrl   String?  @db.VarChar(2048)
+  createdAt   DateTime @default(now())
+
+  project  Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  keywords ProjectKeyword[]
+
+  @@unique([projectId, name])
+  @@map("topic_clusters")
+}
+
+model ProjectKeyword {
+  id               String          @id @default(cuid()) @db.VarChar(32)
+  projectId        String          @db.VarChar(32)
+  listId           String?         @db.VarChar(32)
+  clusterId        String?         @db.VarChar(32)
+  phrase           String          @db.VarChar(200)
+  normalizedPhrase String          @db.VarChar(200)
+  intent           SearchIntent?
+  country          String          @db.Char(2)
+  language         String          @db.VarChar(12)
+  priority         KeywordPriority @default(MEDIUM)
+  status           KeywordStatus   @default(IDEA)
+  isPrimary        Boolean         @default(false)
+  relatedQuestions Json?
+  targetUrl        String?         @db.VarChar(2048)
+  notes            String?         @db.VarChar(1000)
+  source           KeywordSource   @default(MANUAL)
+  /// Measured metrics — only ever populated by a licensed keyword-data provider.
+  searchVolume     Int?
+  difficulty       Int?
+  cpc              Decimal?        @db.Decimal(10, 2)
+  metricsCurrency  String?         @db.Char(3)
+  metricsSource    String?         @db.VarChar(60)
+  metricsFetchedAt DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  project Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  list    KeywordList?  @relation(fields: [listId], references: [id], onDelete: SetNull)
+  cluster TopicCluster? @relation(fields: [clusterId], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, normalizedPhrase, country, language])
+  @@index([projectId, status])
+  @@index([projectId, priority])
+  @@index([clusterId])
+  @@index([listId])
+  @@map("project_keywords")
+}
+
+// ─────────────────────────── Local SEO ───────────────────────────
+
+/// A place the business operates from or serves (one or many per project). Manual, imported, or linked to a
+/// Business Profile location through a connected account.
+model BusinessLocation {
+  id                  String    @id @default(cuid()) @db.VarChar(32)
+  projectId           String    @db.VarChar(32)
+  name                String    @db.VarChar(200)
+  /// STOREFRONT, SERVICE_AREA or HYBRID.
+  kind                String    @default("STOREFRONT") @db.VarChar(15)
+  primaryCategory     String?   @db.VarChar(120)
+  secondaryCategories Json?
+  addressLine1        String?   @db.VarChar(200)
+  addressLine2        String?   @db.VarChar(200)
+  /// Neighbourhood or locality, e.g. Mota Varachha.
+  locality            String?   @db.VarChar(120)
+  city                String    @db.VarChar(120)
+  region              String?   @db.VarChar(120)
+  postalCode          String?   @db.VarChar(20)
+  country             String    @db.Char(2)
+  serviceAreas        Json?
+  latitude            Decimal?  @db.Decimal(10, 7)
+  longitude           Decimal?  @db.Decimal(10, 7)
+  phone               String?   @db.VarChar(40)
+  email               String?   @db.VarChar(254)
+  websiteUrl          String?   @db.VarChar(2048)
+  /// [{ day, open, close }] in local time.
+  openingHours        Json?
+  isPrimary           Boolean   @default(false)
+  /// MANUAL, BUSINESS_PROFILE or IMPORT.
+  source              String    @default("MANUAL") @db.VarChar(20)
+  /// Business Profile location resource (locations/{id}) when linked through a connected account.
+  profileLocationName String?   @db.VarChar(120)
+  placeId             String?   @db.VarChar(200)
+  /// Business Profile account (accounts/{id}) the location was linked through; reviews are read under it.
+  profileAccountName  String?   @db.VarChar(120)
+  profileLinkedAt     DateTime?
+  archivedAt          DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  project          Project                   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  rankQueries      LocalRankQuery[]
+  competitors      ProjectCompetitor[]
+  profileSnapshots BusinessProfileSnapshot[]
+  profileMetrics   BusinessProfileMetric[]
+  reviews          BusinessReview[]
+  reviewReplies    ReviewReply[]
+  reviewSummary    BusinessReviewSummary?
+  profileChanges   ProfileChangeRequest[]
+  localPosts       LocalPost[]
+
+  @@index([projectId, archivedAt])
+  @@map("business_locations")
+}
+
+/// A Business Profile location as Google returned it at a sync (docs/providers/google-business-profile.md). Google
+/// allows this content to be stored for at most 30 days, so rows older than that are deleted.
+model BusinessProfileSnapshot {
+  id                  String   @id @default(cuid()) @db.VarChar(32)
+  projectId           String   @db.VarChar(32)
+  locationId          String   @db.VarChar(32)
+  /// locations/{id}
+  profileLocationName String   @db.VarChar(120)
+  /// The Location fields read (PROFILE_READ_MASK), unchanged.
+  data                Json
+  /// Review totals as Google reports them (not computed by Surfaced).
+  averageRating       Decimal? @db.Decimal(3, 2)
+  totalReviewCount    Int?
+  fetchedAt           DateTime @default(now())
+
+  project  Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  location BusinessLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@index([locationId, fetchedAt])
+  @@index([projectId])
+  @@index([fetchedAt])
+  @@map("business_profile_snapshots")
+}
+
+/// Daily Business Profile performance values (Performance API), replaced at each sync and kept at most 30 days.
+model BusinessProfileMetric {
+  id         String   @id @default(cuid()) @db.VarChar(32)
+  projectId  String   @db.VarChar(32)
+  locationId String   @db.VarChar(32)
+  /// DailyMetric, e.g. CALL_CLICKS or BUSINESS_IMPRESSIONS_MOBILE_MAPS.
+  metric     String   @db.VarChar(60)
+  date       DateTime @db.Date
+  value      Int
+  fetchedAt  DateTime @default(now())
+
+  project  Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  location BusinessLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([locationId, metric, date])
+  @@index([projectId])
+  @@index([fetchedAt])
+  @@map("business_profile_metrics")
+}
+
+/// A review on a linked Business Profile, as last fetched (kept at most 30 days after the last fetch).
+model BusinessReview {
+  id              String    @id @default(cuid()) @db.VarChar(32)
+  projectId       String    @db.VarChar(32)
+  locationId      String    @db.VarChar(32)
+  /// accounts/{a}/locations/{l}/reviews/{r}
+  reviewName      String    @db.VarChar(255)
+  reviewerName    String?   @db.VarChar(255)
+  isAnonymous     Boolean   @default(false)
+  /// 1 to 5; null when Google gives no rating.
+  starRating      Int?      @db.TinyInt
+  comment         String?   @db.Text
+  createTime      DateTime
+  updateTime      DateTime?
+  replyComment    String?   @db.Text
+  replyUpdateTime DateTime?
+  fetchedAt       DateTime
+
+  project  Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  location BusinessLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewName])
+  @@index([locationId, createTime])
+  @@index([projectId])
+  @@index([fetchedAt])
+  @@map("business_reviews")
+}
+
+/// An AI-aggregated sentiment and theme summary over a location's reviews. One per location, replaced on regeneration.
+/// Derived from review content, so it is deleted on the same 30-day schedule as the reviews it was built from.
+model BusinessReviewSummary {
+  id             String    @id @default(cuid()) @db.VarChar(32)
+  projectId      String    @db.VarChar(32)
+  locationId     String    @unique @db.VarChar(32)
+  /// Reviews with text the summary was built from.
+  reviewCount    Int
+  positive       Int       @default(0)
+  neutral        Int       @default(0)
+  negative       Int       @default(0)
+  /// [{ theme, sentiment, mentions, example }] as produced by the model (or the dev adapter).
+  themes         Json
+  summary        String    @db.Text
+  model          String?   @db.VarChar(80)
+  isDevAdapter   Boolean   @default(false)
+  /// The newest review createTime/updateTime at generation, used to tell when the summary is stale.
+  newestReviewAt DateTime?
+  generatedAt    DateTime  @default(now())
+  generatedById  String?   @db.VarChar(32)
+
+  project  Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  location BusinessLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("business_review_summaries")
+}
+
+/// A proposed set of edits to a Google Business Profile's own fields (name, phone, website, description), published
+/// to Google only after an approval for the exact values (approval_requests, entity type LOCATION_CHANGE). The
+/// business's own record of what was suggested and published.
+model ProfileChangeRequest {
+  id            String    @id @default(cuid()) @db.VarChar(32)
+  projectId     String    @db.VarChar(32)
+  locationId    String    @db.VarChar(32)
+  /// Only the fields being changed: { title?, primaryPhone?, websiteUri?, description? }.
+  fields        Json
+  /// DRAFT, AWAITING_APPROVAL, PUBLISHING, PUBLISHED, FAILED or DISCARDED.
+  status        String    @default("DRAFT") @db.VarChar(20)
+  publishedAt   DateTime?
+  publishedById String?   @db.VarChar(32)
+  publishError  String?   @db.VarChar(2000)
+  createdById   String?   @db.VarChar(32)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  project  Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  location BusinessLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, status])
+  @@index([locationId])
+  @@map("profile_change_requests")
+}
+
+/// A reply to a review, drafted by a person or the AI model. Published to Google only after an approval for the
+/// exact text (approval_requests, entity type REVIEW_REPLY). The business's own record; kept after the review expires.
+model ReviewReply {
+  id            String    @id @default(cuid()) @db.VarChar(32)
+  projectId     String    @db.VarChar(32)
+  locationId    String    @db.VarChar(32)
+  /// Google's review resource name (the review row itself expires after 30 days).
+  reviewName    String    @db.VarChar(255)
+  comment       String    @db.Text
+  /// AI or HUMAN.
+  origin        String    @db.VarChar(10)
+  model         String?   @db.VarChar(80)
+  /// DRAFT, AWAITING_APPROVAL, PUBLISHING, PUBLISHED, FAILED or DISCARDED.
+  status        String    @default("DRAFT") @db.VarChar(20)
+  publishedAt   DateTime?
+  publishedById String?   @db.VarChar(32)
+  publishError  String?   @db.VarChar(2000)
+  createdById   String?   @db.VarChar(32)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  project   Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  location  BusinessLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  createdBy User?            @relation("ReviewReplyAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([projectId, status])
+  @@index([reviewName])
+  @@index([locationId])
+  @@index([createdById])
+  @@map("review_replies")
+}
+
+/// A Google Business Profile post (localPost), drafted by a person or the AI model and published to Google only
+/// after an approval for the exact content (approval_requests, entity type LOCAL_POST). Posts may be scheduled;
+/// a scheduled, approved post is published by a background tick when due. The business's own record.
+model LocalPost {
+  id            String    @id @default(cuid()) @db.VarChar(32)
+  projectId     String    @db.VarChar(32)
+  locationId    String    @db.VarChar(32)
+  /// STANDARD, EVENT or OFFER (Google localPost topicType).
+  topicType     String    @default("STANDARD") @db.VarChar(20)
+  /// The post body (Google "summary").
+  summary       String    @db.Text
+  title         String?   @db.VarChar(255)
+  /// Call-to-action button type (e.g. LEARN_MORE, CALL, ORDER, BOOK, SIGN_UP) or null for none.
+  ctaType       String?   @db.VarChar(30)
+  ctaUrl        String?   @db.VarChar(2048)
+  /// AI or HUMAN.
+  origin        String    @db.VarChar(10)
+  model         String?   @db.VarChar(80)
+  /// DRAFT, AWAITING_APPROVAL, SCHEDULED, PUBLISHING, PUBLISHED, FAILED or DISCARDED.
+  status        String    @default("DRAFT") @db.VarChar(20)
+  /// When set and approved, a background tick publishes the post at/after this time.
+  scheduledAt   DateTime?
+  /// Google localPost resource name (accounts/{a}/locations/{l}/localPosts/{p}) after publish.
+  googleName    String?   @db.VarChar(255)
+  searchUrl     String?   @db.VarChar(2048)
+  publishedAt   DateTime?
+  publishedById String?   @db.VarChar(32)
+  publishError  String?   @db.VarChar(2000)
+  createdById   String?   @db.VarChar(32)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  project  Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  location BusinessLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, status])
+  @@index([locationId])
+  @@index([status, scheduledAt])
+  @@map("local_posts")
+}
+
+/// A product of a project, from an imported feed file or the connected Merchant Center account. Attributes are kept
+/// as given; issues hold Surfaced's checks and, for Merchant Center products, Google's item issues.
+model MerchantProduct {
+  id              String   @id @default(cuid()) @db.VarChar(32)
+  projectId       String   @db.VarChar(32)
+  /// FEED_IMPORT or MERCHANT_API.
+  source          String   @db.VarChar(20)
+  offerId         String   @db.VarChar(50)
+  contentLanguage String   @db.VarChar(10)
+  /// Country (feed label) the product data targets.
+  feedLabel       String   @db.VarChar(20)
+  title           String?  @db.VarChar(500)
+  /// ProductData: every attribute read, as given.
+  data            Json
+  /// Merchant Center product name (accounts/{a}/products/{p}); MERCHANT_API only.
+  googleName      String?  @db.VarChar(500)
+  /// Destination statuses as Merchant Center reported them.
+  googleStatus    Json?
+  /// ProductIssue[]: Surfaced's checks and Google's item issues.
+  issues          Json
+  /// ok, warnings or errors.
+  status          String   @db.VarChar(10)
+  errorCount      Int      @default(0)
+  warningCount    Int      @default(0)
+  importId        String?  @db.VarChar(32)
+  lastSeenAt      DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, source, feedLabel, contentLanguage, offerId])
+  @@index([projectId, status])
+  @@index([projectId, source, lastSeenAt])
+  @@map("merchant_products")
+}
+
+/// One imported product feed file (the products themselves are in merchant_products).
+model ProductFeedImport {
+  id          String   @id @default(cuid()) @db.VarChar(32)
+  projectId   String   @db.VarChar(32)
+  fileName    String   @db.VarChar(200)
+  /// GOOGLE_CSV, GOOGLE_TSV or SHOPIFY_CSV.
+  format      String   @db.VarChar(20)
+  country     String   @db.Char(2)
+  language    String   @db.VarChar(10)
+  /// replace or merge.
+  mode        String   @db.VarChar(10)
+  rows        Int
+  imported    Int
+  updated     Int
+  removed     Int
+  skipped     Int
+  rowErrors   Json
+  limitations Json
+  createdById String?  @db.VarChar(32)
+  createdAt   DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+  @@map("product_feed_imports")
+}
+
+/// A search query tracked on a geographic grid around a location (Maps, local pack or organic).
+model LocalRankQuery {
+  id              String    @id @default(cuid()) @db.VarChar(32)
+  projectId       String    @db.VarChar(32)
+  locationId      String    @db.VarChar(32)
+  query           String    @db.VarChar(200)
+  /// MAPS, LOCAL_PACK or ORGANIC.
+  surface         String    @default("MAPS") @db.VarChar(12)
+  language        String    @db.VarChar(12)
+  device          String    @default("mobile") @db.VarChar(10)
+  gridSize        Int       @default(5)
+  spacingKm       Float     @default(1)
+  depth           Int       @default(20)
+  centerLatitude  Decimal   @db.Decimal(10, 7)
+  centerLongitude Decimal   @db.Decimal(10, 7)
+  /// MANUAL, WEEKLY or MONTHLY.
+  frequency       String    @default("MANUAL") @db.VarChar(10)
+  nextRunAt       DateTime?
+  /// ACTIVE or PAUSED.
+  status          String    @default("ACTIVE") @db.VarChar(10)
+  createdById     String?   @db.VarChar(32)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  project  Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  location BusinessLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  scans    LocalRankScan[]
+
+  @@unique([projectId, locationId, query, surface, device])
+  @@index([frequency, nextRunAt])
+  @@map("local_rank_queries")
+}
+
+/// One measurement of a query over its grid. The grid settings are copied so later edits do not change history.
+model LocalRankScan {
+  id                  String     @id @default(cuid()) @db.VarChar(32)
+  projectId           String     @db.VarChar(32)
+  queryId             String     @db.VarChar(32)
+  /// GOOGLE_CSE, OSM, CUSTOM, MANUAL, IMPORT or FIXTURE.
+  source              String     @db.VarChar(20)
+  /// How the result order was obtained: observed_search_position, discovery_order or estimated_visibility.
+  observationType     String?    @db.VarChar(40)
+  /// Google page captures only: one entry per saved page (batch): address, offset, outcome, new and duplicate counts.
+  captureBatches      Json?
+  /// Google page collections: unique-business target (default 1000).
+  captureTarget       Int?
+  /// IN_PROGRESS, TARGET_REACHED, SOURCE_EXHAUSTED, PARTIAL or FAILED.
+  captureState        String?    @db.VarChar(20)
+  /// Why the collection ended, or the last problem while it is in progress.
+  captureReason       String?    @db.Text
+  /// The next-page address Google's last saved page linked to (taken from the page, never built).
+  captureNextUrl      String?    @db.Text
+  /// Automatic batch collections: the source's cursor for the next batch (saved with each batch, for resume).
+  collectionCursor    String?    @db.Text
+  /// Automatic batch collections: records requested per batch (1-20) and the pause between requests.
+  collectionBatchSize Int?
+  collectionDelayMs   Int?
+  /// The current run of an automatic collection; a run that no longer matches stops (pause/resume/cancel).
+  collectionRunId     String?    @db.VarChar(32)
+  status              JobStatus  @default(QUEUED)
+  trigger             JobTrigger @default(MANUAL)
+  query               String     @db.VarChar(200)
+  surface             String     @db.VarChar(12)
+  language            String     @db.VarChar(12)
+  device              String     @db.VarChar(10)
+  gridSize            Int
+  spacingKm           Float
+  depth               Int
+  centerLatitude      Decimal    @db.Decimal(10, 7)
+  centerLongitude     Decimal    @db.Decimal(10, 7)
+  pointsPlanned       Int
+  pointsMeasured      Int        @default(0)
+  pointsFailed        Int        @default(0)
+  top3                Int        @default(0)
+  top10               Int        @default(0)
+  notFound            Int        @default(0)
+  /// top3 / pointsMeasured (failed points excluded), in percent.
+  top3Share           Float?
+  averageRankFound    Float?
+  costUsd             Float?
+  limitations         Json?
+  errorMessage        String?    @db.Text
+  createdById         String?    @db.VarChar(32)
+  startedAt           DateTime?
+  finishedAt          DateTime?
+  createdAt           DateTime   @default(now())
+
+  project   Project                 @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  rankQuery LocalRankQuery          @relation(fields: [queryId], references: [id], onDelete: Cascade)
+  points    LocalRankPoint[]
+  research  LocalBusinessResearch[]
+
+  @@index([queryId, createdAt])
+  @@index([projectId, createdAt])
+  @@map("local_rank_scans")
+}
+
+/// Research for one business in an observed local ranking: the comparison computed from the collected listings
+/// (evidence) and the action plan built from it (report). Public listing data only; deleted with its scan.
+model LocalBusinessResearch {
+  id           String   @id @default(cuid()) @db.VarChar(32)
+  projectId    String   @db.VarChar(32)
+  scanId       String   @db.VarChar(32)
+  /// The listing's index in the scan point's results, and its identity (entity ID, CID, place ID or name+address).
+  resultIndex  Int
+  businessKey  String   @db.VarChar(512)
+  businessName String   @db.VarChar(255)
+  query        String   @db.VarChar(200)
+  /// Organic position (or the position on its page when that page's offset was unknown: pageLocal).
+  position     Int?
+  pageLocal    Boolean  @default(false)
+  /// LocalResearchEvidence: the business, the listings above it, field statistics and numbered findings.
+  evidence     Json
+  /// LocalResearchReport: summary, strengths, actions citing findings, checks.
+  report       Json
+  provider     String   @db.VarChar(20)
+  model        String?  @db.VarChar(80)
+  isDevAdapter Boolean  @default(false)
+  createdById  String?  @db.VarChar(32)
+  createdAt    DateTime @default(now())
+
+  project Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  scan    LocalRankScan @relation(fields: [scanId], references: [id], onDelete: Cascade)
+
+  @@index([scanId, createdAt])
+  @@index([projectId, businessKey])
+  @@map("local_business_research")
+}
+
+/// One grid point of a scan: the tracked business's rank there and the businesses listed.
+model LocalRankPoint {
+  id        String    @id @default(cuid()) @db.VarChar(32)
+  scanId    String    @db.VarChar(32)
+  row       Int
+  col       Int
+  latitude  Decimal   @db.Decimal(10, 7)
+  longitude Decimal   @db.Decimal(10, 7)
+  /// PENDING, FOUND, NOT_FOUND or FAILED.
+  status    String    @default("PENDING") @db.VarChar(10)
+  /// Rank of the tracked business; null when not found within the depth or not measured.
+  rank      Int?
+  /// LocalResult[]: the businesses listed, as the source returned them.
+  results   Json?
+  error     String?   @db.VarChar(500)
+  attempts  Int       @default(0)
+  checkedAt DateTime?
+
+  scan LocalRankScan @relation(fields: [scanId], references: [id], onDelete: Cascade)
+
+  @@unique([scanId, row, col])
+  @@map("local_rank_points")
+}
+
+// ─────────────────────────── Recommendations ───────────────────────────
+
+model Recommendation {
+  id              String                 @id @default(cuid()) @db.VarChar(32)
+  projectId       String                 @db.VarChar(32)
+  fingerprint     String                 @db.Char(64)
+  title           String                 @db.VarChar(255)
+  category        RecommendationCategory
+  source          RecommendationSource
+  severity        IssueSeverity
+  relatedUrl      String?                @db.VarChar(2048)
+  /// Qualitative estimate; never a promised outcome.
+  expectedBenefit String                 @db.Text
+  benefitLevel    BenefitLevel
+  evidence        Json
+  proposedFix     String                 @db.Text
+  status          RecommendationStatus   @default(OPEN)
+  assigneeId      String?                @db.VarChar(32)
+  /// WRITER, DEVELOPER, SEO or MARKETER: who should carry it out (defaulted from the category, editable).
+  ownerRole       String?                @db.VarChar(20)
+  /// SMALL, MEDIUM or LARGE: a rough effort estimate (defaulted from the category, editable).
+  effort          String?                @db.VarChar(20)
+  /// How to confirm the fix worked (e.g. re-run the audit; check the page).
+  verification    String?                @db.Text
+  dueAt           DateTime?
+  dismissedReason String?                @db.VarChar(500)
+  /// Why the recommendation is blocked (required when status is BLOCKED).
+  blockedReason   String?                @db.VarChar(500)
+  startedAt       DateTime?
+  plannedAt       DateTime?
+  completedAt     DateTime?
+  verifiedAt      DateTime?
+  blockedAt       DateTime?
+  verifiedById    String?                @db.VarChar(32)
+  dismissedAt     DateTime?
+  lastGeneratedAt DateTime               @default(now())
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee   User?   @relation("RecommendationAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  verifiedBy User?   @relation("RecommendationVerifier", fields: [verifiedById], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, fingerprint])
+  @@index([projectId, status])
+  @@index([projectId, category])
+  @@map("recommendations")
+}
+
+/// One answer-engine (AEO) answerability analysis of the site. The assessment is produced by an LLM from the
+/// REAL structure of crawled pages (headings, FAQ/QA schema, question-style headings) plus the project's target
+/// questions — it is an interpretive assessment of how answerable the content is, never a measured ranking, and
+/// contains no fabricated metrics. Runnable on each configured provider so results can be compared.
+model AnswerabilityRun {
+  id                  String    @id @default(cuid()) @db.VarChar(32)
+  projectId           String    @db.VarChar(32)
+  status              JobStatus @default(QUEUED)
+  /// Which LLM produced the assessment: openai, gemini or dev.
+  provider            String?   @db.VarChar(20)
+  model               String?   @db.VarChar(120)
+  isDevAdapter        Boolean   @default(false)
+  /// 0–100 answerability index: an interpretive score from page structure, not a search-engine score.
+  score               Int?
+  /// good | fair | poor
+  grade               String?   @db.VarChar(20)
+  /// { summary, strengths[], gaps[], findings:[{ area, status, detail, recommendation }], questionCoverage:[{ question, covered, note }] }
+  assessment          Json?
+  pagesConsidered     Int       @default(0)
+  questionsConsidered Int       @default(0)
+  limitations         Json?
+  errorMessage        String?   @db.Text
+  createdById         String?   @db.VarChar(32)
+  createdAt           DateTime  @default(now())
+  finishedAt          DateTime?
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+  @@map("answerability_runs")
+}
+
+// ───────────────────────────── Integrations ─────────────────────────────
+
+model Integration {
+  id              String              @id @default(cuid()) @db.VarChar(32)
+  workspaceId     String              @db.VarChar(32)
+  projectId       String              @db.VarChar(32)
+  provider        IntegrationProvider
+  status          IntegrationStatus   @default(DISCONNECTED)
+  externalAccount String?             @db.VarChar(254)
+  /// Provider-specific selection, e.g. { siteUrl } for Search Console.
+  config          Json?
+  scopes          String?             @db.VarChar(1000)
+  connectedById   String?             @db.VarChar(32)
+  connectedAt     DateTime?
+  lastSyncAt      DateTime?
+  lastSyncStatus  String?             @db.VarChar(40)
+  lastError       String?             @db.Text
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  workspace   Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project     Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  connectedBy User?                 @relation(fields: [connectedById], references: [id], onDelete: SetNull)
+  token       OAuthToken?
+  gscMetrics  SearchConsoleMetric[]
+
+  @@unique([projectId, provider])
+  @@index([workspaceId])
+  @@map("integrations")
+}
+
+model OAuthToken {
+  id              String    @id @default(cuid()) @db.VarChar(32)
+  integrationId   String    @unique @db.VarChar(32)
+  /// AES-256-GCM ciphertext (iv.tag.data, base64url). Never stored in plaintext.
+  accessTokenEnc  String    @db.Text
+  refreshTokenEnc String?   @db.Text
+  tokenType       String?   @db.VarChar(40)
+  scope           String?   @db.VarChar(1000)
+  expiresAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  integration Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  @@map("oauth_tokens")
+}
+
+model OAuthState {
+  id              String              @id @default(cuid()) @db.VarChar(32)
+  stateHash       String              @unique @db.Char(64)
+  provider        IntegrationProvider
+  userId          String              @db.VarChar(32)
+  workspaceId     String              @db.VarChar(32)
+  projectId       String              @db.VarChar(32)
+  /// PKCE code verifier, encrypted at rest.
+  codeVerifierEnc String              @db.Text
+  expiresAt       DateTime
+  usedAt          DateTime?
+  createdAt       DateTime            @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@map("oauth_states")
+}
+
+model SearchConsoleMetric {
+  id            String       @id @default(cuid()) @db.VarChar(32)
+  projectId     String       @db.VarChar(32)
+  integrationId String       @db.VarChar(32)
+  dimension     GscDimension
+  /// For DATE rows this is the day; for QUERY/PAGE rows it is the range start.
+  rangeStart    DateTime     @db.Date
+  rangeEnd      DateTime     @db.Date
+  key           String       @db.VarChar(2048)
+  keyHash       String       @db.Char(64)
+  clicks        Int
+  impressions   Int
+  ctr           Float
+  position      Float
+  syncedAt      DateTime     @default(now())
+
+  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  integration Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  @@unique([integrationId, dimension, rangeStart, rangeEnd, keyHash])
+  @@index([projectId, dimension, rangeStart])
+  @@map("search_console_metrics")
+}
+
+// ───────────────────────── Billing & usage ─────────────────────────
+
+model SubscriptionPlan {
+  id                    String   @id @default(cuid()) @db.VarChar(32)
+  key                   String   @unique @db.VarChar(32)
+  name                  String   @db.VarChar(60)
+  description           String   @db.VarChar(500)
+  currency              String   @default("USD") @db.Char(3)
+  priceMonthly          Decimal  @db.Decimal(10, 2)
+  priceYearly           Decimal  @db.Decimal(10, 2)
+  /// PlanLimits — validated by @surfaced/shared planLimitsSchema.
+  limits                Json
+  /// Marketing feature bullets.
+  features              Json
+  highlighted           Boolean  @default(false)
+  sortOrder             Int      @default(0)
+  isActive              Boolean  @default(true)
+  stripePriceMonthlyId  String?  @db.VarChar(120)
+  stripePriceYearlyId   String?  @db.VarChar(120)
+  razorpayPlanMonthlyId String?  @db.VarChar(120)
+  razorpayPlanYearlyId  String?  @db.VarChar(120)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  subscriptions Subscription[]
+
+  @@map("subscription_plans")
+}
+
+model Subscription {
+  id                     String             @id @default(cuid()) @db.VarChar(32)
+  workspaceId            String             @unique @db.VarChar(32)
+  planId                 String             @db.VarChar(32)
+  status                 SubscriptionStatus @default(ACTIVE)
+  provider               BillingProvider    @default(NONE)
+  interval               BillingInterval    @default(MONTH)
+  providerCustomerId     String?            @db.VarChar(120)
+  providerSubscriptionId String?            @db.VarChar(120)
+  currentPeriodStart     DateTime?
+  currentPeriodEnd       DateTime?
+  cancelAtPeriodEnd      Boolean            @default(false)
+  canceledAt             DateTime?
+  lastPaymentFailedAt    DateTime?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+
+  workspace Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  plan      SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+  invoices  BillingInvoice[]
+
+  @@index([provider, providerSubscriptionId])
+  @@index([provider, providerCustomerId])
+  @@map("subscriptions")
+}
+
+model BillingInvoice {
+  id                String          @id @default(cuid()) @db.VarChar(32)
+  workspaceId       String          @db.VarChar(32)
+  subscriptionId    String?         @db.VarChar(32)
+  provider          BillingProvider
+  providerInvoiceId String          @db.VarChar(120)
+  amount            Decimal         @db.Decimal(10, 2)
+  currency          String          @db.Char(3)
+  status            InvoiceStatus
+  description       String?         @db.VarChar(255)
+  periodStart       DateTime?
+  periodEnd         DateTime?
+  hostedUrl         String?         @db.VarChar(2048)
+  paidAt            DateTime?
+  createdAt         DateTime        @default(now())
+
+  workspace    Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  @@unique([provider, providerInvoiceId])
+  @@index([workspaceId, createdAt])
+  @@map("billing_invoices")
+}
+
+model WebhookEvent {
+  id          String             @id @default(cuid()) @db.VarChar(32)
+  provider    BillingProvider
+  eventId     String             @db.VarChar(160)
+  type        String             @db.VarChar(120)
+  status      WebhookEventStatus @default(RECEIVED)
+  /// Minimal, non-sensitive subset of the event used for debugging.
+  summary     Json?
+  error       String?            @db.Text
+  receivedAt  DateTime           @default(now())
+  processedAt DateTime?
+
+  @@unique([provider, eventId])
+  @@index([status])
+  @@map("webhook_events")
+}
+
+model UsageRecord {
+  id             String      @id @default(cuid()) @db.VarChar(32)
+  workspaceId    String      @db.VarChar(32)
+  projectId      String?     @db.VarChar(32)
+  metric         UsageMetric
+  quantity       Int
+  /// UTC calendar month, e.g. "2026-10".
+  periodKey      String      @db.Char(7)
+  /// Unique per billable event so job retries never double-count usage.
+  idempotencyKey String      @unique @db.VarChar(160)
+  createdAt      DateTime    @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project   Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, metric, periodKey])
+  @@map("usage_records")
+}
+
+// ───────────────────────────── Reports ─────────────────────────────
+
+model Report {
+  id           String       @id @default(cuid()) @db.VarChar(32)
+  workspaceId  String       @db.VarChar(32)
+  projectId    String       @db.VarChar(32)
+  title        String       @db.VarChar(255)
+  /// Section keys included, e.g. ["audit_summary","issues","ai_visibility", ...]
+  sections     Json
+  dateFrom     DateTime
+  dateTo       DateTime
+  status       ReportStatus @default(QUEUED)
+  htmlPath     String?      @db.VarChar(500)
+  pdfPath      String?      @db.VarChar(500)
+  /// READY | UNAVAILABLE | FAILED — PDF rendering depends on a configured renderer.
+  pdfStatus    String?      @db.VarChar(20)
+  sizeBytes    Int?
+  /// Human-readable data gaps found while generating.
+  limitations  Json?
+  /// Headline numbers captured at generation time.
+  summary      Json?
+  whiteLabel   Json?
+  errorMessage String?      @db.Text
+  generatedAt  DateTime?
+  createdById  String?      @db.VarChar(32)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([projectId, createdAt])
+  @@index([workspaceId, createdAt])
+  @@map("reports")
+}
+
+// ───────────────────── Notifications, jobs, logs ─────────────────────
+
+model Notification {
+  id          String    @id @default(cuid()) @db.VarChar(32)
+  userId      String    @db.VarChar(32)
+  workspaceId String?   @db.VarChar(32)
+  type        String    @db.VarChar(60)
+  title       String    @db.VarChar(255)
+  body        String?   @db.Text
+  link        String?   @db.VarChar(500)
+  readAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+  @@map("notifications")
+}
+
+model BackgroundJob {
+  id                String            @id @default(cuid()) @db.VarChar(32)
+  workspaceId       String?           @db.VarChar(32)
+  projectId         String?           @db.VarChar(32)
+  userId            String?           @db.VarChar(32)
+  type              BackgroundJobType
+  status            JobStatus         @default(QUEUED)
+  queueName         String            @db.VarChar(60)
+  progress          Int               @default(0)
+  message           String?           @db.VarChar(500)
+  attempts          Int               @default(0)
+  maxAttempts       Int               @default(3)
+  /// Non-sensitive job input (ids and options only).
+  payload           Json?
+  result            Json?
+  error             String?           @db.Text
+  /// Domain record this job operates on, e.g. ("CrawlJob", id).
+  entityType        String?           @db.VarChar(40)
+  entityId          String?           @db.VarChar(32)
+  cancelRequestedAt DateTime?
+  startedAt         DateTime?
+  heartbeatAt       DateTime?
+  finishedAt        DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project   Project?   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt])
+  @@index([status, type])
+  @@index([status, heartbeatAt])
+  @@index([entityType, entityId])
+  @@map("background_job_records")
+}
+
+model AuditLog {
+  id          String   @id @default(cuid()) @db.VarChar(32)
+  workspaceId String?  @db.VarChar(32)
+  actorUserId String?  @db.VarChar(32)
+  action      String   @db.VarChar(80)
+  targetType  String?  @db.VarChar(40)
+  targetId    String?  @db.VarChar(64)
+  ipAddress   String?  @db.VarChar(64)
+  userAgent   String?  @db.VarChar(400)
+  /// Never contains secrets, passwords, tokens or payment data.
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  actor     User?      @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([action, createdAt])
+  @@map("audit_logs")
+}
+
+model EmailDelivery {
+  id                String      @id @default(cuid()) @db.VarChar(32)
+  userId            String?     @db.VarChar(32)
+  toAddress         String      @db.VarChar(254)
+  template          String      @db.VarChar(60)
+  subject           String      @db.VarChar(255)
+  status            EmailStatus @default(QUEUED)
+  provider          String      @db.VarChar(30)
+  providerMessageId String?     @db.VarChar(255)
+  /// Path of the locally written .eml file in console mode (development only).
+  localPath         String?     @db.VarChar(500)
+  error             String?     @db.Text
+  createdAt         DateTime    @default(now())
+  sentAt            DateTime?
+
+  @@index([status, createdAt])
+  @@index([userId])
+  @@map("email_deliveries")
+}
+
+model ContactMessage {
+  id        String    @id @default(cuid()) @db.VarChar(32)
+  name      String    @db.VarChar(120)
+  email     String    @db.VarChar(254)
+  company   String?   @db.VarChar(160)
+  topic     String    @db.VarChar(40)
+  message   String    @db.Text
+  ipHash    String    @db.Char(64)
+  handledAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([createdAt])
+  @@map("contact_messages")
+}
+
+// ───────────────────── Agency access, approvals, tasks ─────────────────────
+
+/// Grants members of an agency workspace inherited access to a client workspace (see docs/extension-plan.md D-024).
+model AgencyClientLink {
+  id                 String            @id @default(cuid()) @db.VarChar(32)
+  agencyWorkspaceId  String            @db.VarChar(32)
+  clientWorkspaceId  String            @db.VarChar(32)
+  status             AgencyLinkStatus  @default(PENDING)
+  /// Role that agency owners and admins receive in the client workspace (ADMIN or MEMBER).
+  accessRole         WorkspaceRole     @default(ADMIN)
+  /// When true, agency owners and admins may decide approvals on the client's behalf.
+  approvalsDelegated Boolean           @default(false)
+  billingMode        AgencyBillingMode @default(CLIENT)
+  invitedById        String?           @db.VarChar(32)
+  acceptedById       String?           @db.VarChar(32)
+  acceptedAt         DateTime?
+  revokedById        String?           @db.VarChar(32)
+  revokedAt          DateTime?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  agencyWorkspace Workspace @relation("AgencyLinks", fields: [agencyWorkspaceId], references: [id], onDelete: Cascade)
+  clientWorkspace Workspace @relation("ClientLinks", fields: [clientWorkspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([agencyWorkspaceId, clientWorkspaceId])
+  @@index([clientWorkspaceId, status])
+  @@map("agency_client_links")
+}
+
+/// A request to approve one exact change before it is published outside Surfaced (D-026).
+model ApprovalRequest {
+  id            String         @id @default(cuid()) @db.VarChar(32)
+  workspaceId   String         @db.VarChar(32)
+  projectId     String?        @db.VarChar(32)
+  /// Record type, e.g. LOCATION_CHANGE, LOCAL_POST, REVIEW_REPLY, PRODUCT_CHANGE_SET, SITE_CHANGE, CONTENT_PUBLICATION.
+  entityType    String         @db.VarChar(40)
+  entityId      String         @db.VarChar(32)
+  title         String         @db.VarChar(255)
+  summary       String?        @db.Text
+  /// The exact content being approved. Publishing recomputes the hash of the current content and requires a match.
+  snapshot      Json
+  snapshotHash  String         @db.Char(64)
+  status        ApprovalStatus @default(PENDING)
+  requestedById String?        @db.VarChar(32)
+  requestedAt   DateTime       @default(now())
+  decidedById   String?        @db.VarChar(32)
+  decidedAt     DateTime?
+  decisionNote  String?        @db.VarChar(2000)
+  /// DIRECT_MEMBER or AGENCY_DELEGATED: how the person who decided was entitled to.
+  decidedVia    String?        @db.VarChar(30)
+  dueAt         DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project     Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  requestedBy User?     @relation("ApprovalRequester", fields: [requestedById], references: [id], onDelete: SetNull)
+  decidedBy   User?     @relation("ApprovalDecider", fields: [decidedById], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, status, requestedAt])
+  @@index([entityType, entityId, requestedAt])
+  @@index([projectId, status])
+  @@map("approval_requests")
+}
+
+model Task {
+  id            String       @id @default(cuid()) @db.VarChar(32)
+  workspaceId   String       @db.VarChar(32)
+  projectId     String?      @db.VarChar(32)
+  /// Work area, e.g. CONTENT, LOCAL_SEO, BUSINESS_PROFILE, MERCHANT, SEARCH, BACKLINKS, PR, COMMUNITY, STRATEGY, OTHER.
+  type          String       @db.VarChar(30)
+  title         String       @db.VarChar(255)
+  description   String?      @db.Text
+  status        TaskStatus   @default(TODO)
+  priority      TaskPriority @default(MEDIUM)
+  assigneeId    String?      @db.VarChar(32)
+  dueDate       DateTime?    @db.Date
+  /// UTC month the task delivers for, e.g. "2026-11" (managed-service deliverables).
+  periodKey     String?      @db.Char(7)
+  /// Shown to Client-role users in the client portal.
+  clientVisible Boolean      @default(false)
+  /// Optional link to the record the task is about, e.g. ("Recommendation", id).
+  entityType    String?      @db.VarChar(40)
+  entityId      String?      @db.VarChar(32)
+  createdById   String?      @db.VarChar(32)
+  completedAt   DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project     Project?        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee    User?           @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  createdBy   User?           @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  timeEntries TaskTimeEntry[]
+
+  @@index([workspaceId, status, dueDate])
+  @@index([projectId, status])
+  @@index([assigneeId, status])
+  @@index([entityType, entityId])
+  @@map("tasks")
+}
+
+model TaskTimeEntry {
+  id        String   @id @default(cuid()) @db.VarChar(32)
+  taskId    String   @db.VarChar(32)
+  userId    String?  @db.VarChar(32)
+  minutes   Int
+  workDate  DateTime @db.Date
+  note      String?  @db.VarChar(500)
+  createdAt DateTime @default(now())
+
+  task Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([taskId])
+  @@index([userId, workDate])
+  @@map("task_time_entries")
+}
+
+// ───────────────────── Provider costs and domain events ─────────────────────
+
+/// Administrator-configured unit prices used to estimate provider costs (D-027). No rate means "not priced".
+model ProviderRate {
+  id            String   @id @default(cuid()) @db.VarChar(32)
+  provider      String   @db.VarChar(40)
+  /// Null applies to every operation of the provider.
+  operation     String?  @db.VarChar(40)
+  /// input_token | output_token | request
+  unit          String   @db.VarChar(20)
+  /// Price for `unitQuantity` units, in millionths of `currency`.
+  priceMicros   BigInt
+  unitQuantity  Int      @default(1)
+  currency      String   @default("USD") @db.Char(3)
+  effectiveFrom DateTime
+  note          String?  @db.VarChar(500)
+  createdById   String?  @db.VarChar(32)
+  createdAt     DateTime @default(now())
+
+  @@index([provider, operation, effectiveFrom])
+  @@map("provider_rates")
+}
+
+/// One paid or metered external call (tokens, SERP requests, ...), with its estimated cost.
+model ProviderUsageEvent {
+  id              String   @id @default(cuid()) @db.VarChar(32)
+  workspaceId     String?  @db.VarChar(32)
+  projectId       String?  @db.VarChar(32)
+  provider        String   @db.VarChar(40)
+  operation       String   @db.VarChar(40)
+  model           String?  @db.VarChar(80)
+  inputTokens     Int?
+  outputTokens    Int?
+  requests        Int      @default(1)
+  /// Estimated cost in millionths of `currency`; null when no rate is configured.
+  costMicros      BigInt?
+  currency        String?  @db.Char(3)
+  backgroundJobId String?  @db.VarChar(32)
+  /// Unique per external call so job retries never double-count.
+  idempotencyKey  String   @unique @db.VarChar(160)
+  occurredAt      DateTime @default(now())
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, occurredAt])
+  @@index([provider, occurredAt])
+  @@map("provider_usage_events")
+}
+
+/// Append-only log of things that happened (fan-out to webhooks and alert evaluation).
+model DomainEvent {
+  id          String   @id @default(cuid()) @db.VarChar(32)
+  workspaceId String   @db.VarChar(32)
+  projectId   String?  @db.VarChar(32)
+  type        String   @db.VarChar(60)
+  entityType  String?  @db.VarChar(40)
+  entityId    String?  @db.VarChar(32)
+  actorUserId String?  @db.VarChar(32)
+  /// Non-sensitive payload: ids, statuses and numbers only.
+  data        Json?
+  occurredAt  DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, occurredAt])
+  @@index([type, occurredAt])
+  @@map("domain_events")
+}

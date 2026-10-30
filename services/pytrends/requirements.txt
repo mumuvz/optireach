@@ -1,0 +1,3 @@
+# Optional experimental Google Trends provider. pytrends is unofficial and archived (April 2025):
+# it may stop working whenever Google changes its endpoints. See docs/providers/keyword-trends.md.
+pytrends==4.9.2

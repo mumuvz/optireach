@@ -1,0 +1,94 @@
+# GA4, PageSpeed/CrUX, structured data and hreflang: implementation notes
+
+Checked against Google's documentation on 2026-10-22 (live test calls where noted).
+
+## GA4 (attribution)
+
+- Scope `https://www.googleapis.com/auth/analytics.readonly` covers both APIs. It is likely a "sensitive" scope,
+  which means OAuth app verification before public launch.
+- Properties: `GET https://analyticsadmin.googleapis.com/v1beta/accountSummaries?pageSize=200` returns
+  `accountSummaries[].propertySummaries[]{property: "properties/123", displayName}`.
+- Reports: `POST https://analyticsdata.googleapis.com/v1beta/properties/{id}:runReport` with `dateRanges`
+  (`YYYY-MM-DD` or `NdaysAgo`), `dimensions`, `metrics`, `dimensionFilter`, `limit` (default 10,000, max 250,000),
+  `offset` and `returnPropertyQuota`.
+  - Rows hold string values in request order. `rowCount` gives the total for paging.
+  - The `metadata` flags (`dataLossFromOtherRow`, `samplingMetadatas`, `subjectToThresholding`) are stored and shown.
+- Names:
+  - Dimensions: `date` (YYYYMMDD), `sessionDefaultChannelGroup`, `sessionSource`, `sessionMedium`,
+    `sessionSourceMedium`, `sessionCampaignName`, `landingPage`, `country`, `deviceCategory`, `eventName`.
+  - Metrics: `sessions`, `engagedSessions`, `keyEvents`, `totalRevenue`, `purchaseRevenue`, `ecommercePurchases`,
+    `transactions`.
+  - `conversions` was renamed to `keyEvents`; do not use the old name.
+- Since May 2026 the default channel group has an **AI Assistant** channel (medium `ai-assistant`; ChatGPT, Gemini,
+  Copilot, DeepSeek, Grok). Google AI Overviews and AI Mode traffic counts as Organic Search.
+- Freshness: daily data is ready after about 12 hours and can change for 24–48 hours (late hits up to 7 days), so
+  the last 3 days are re-synced.
+- Quotas: 200,000 tokens per property per day and 40,000 per hour on standard properties.
+
+## PageSpeed Insights and CrUX (Core Web Vitals)
+
+- **An API key is required in practice.** Keyless calls returned HTTP 429 with a daily quota of 0 (tested
+  2026-10-22). The CrUX API also needs a key ("Chrome UX Report API" enabled). One key can serve both APIs.
+- PSI: `GET https://pagespeedonline.googleapis.com/pagespeedonline/v5/runPagespeed?url=…&strategy=MOBILE|DESKTOP
+&category=PERFORMANCE&key=…`. Use a timeout of at least 120 s.
+  - Lab data: `lighthouseResult.categories.performance.score` (0–1), and
+    `audits['largest-contentful-paint'|'cumulative-layout-shift'|'total-blocking-time'|'first-contentful-paint'|
+'speed-index'].numericValue`.
+  - Lighthouse runs in navigation mode have no lab INP, so TBT is the lab proxy. Read
+    `lighthouseResult.lighthouseVersion`.
+- Google plans to remove CrUX field data from PSI, so field data comes from the CrUX API:
+  - `POST https://chromeuxreport.googleapis.com/v1/records:queryRecord?key=…` with `{url|origin, formFactor}`.
+  - The response has `metrics.<name>.percentiles.p75` and histograms, plus `collectionPeriod` (a 28-day rolling
+    window).
+  - Metric names: `largest_contentful_paint`, `interaction_to_next_paint`, `cumulative_layout_shift`,
+    `first_contentful_paint`, `experimental_time_to_first_byte`. CLS p75 is a string such as "0.23".
+  - History: `records:queryHistoryRecord` with `collectionPeriodCount` 1–40 (weekly).
+  - Quota: 150 queries/min per project.
+  - A 404 means there is not enough field data.
+- Thresholds at p75 (good / needs improvement / poor):
+
+  | Metric | Good     | Needs improvement | Poor     |
+  | ------ | -------- | ----------------- | -------- |
+  | LCP    | ≤ 2.5 s  | ≤ 4 s             | > 4 s    |
+  | INP    | ≤ 200 ms | ≤ 500 ms          | > 500 ms |
+  | CLS    | ≤ 0.1    | ≤ 0.25            | > 0.25   |
+
+  FCP (≤ 1.8 s / ≤ 3 s) and TTFB (≤ 0.8 s / ≤ 1.8 s) are diagnostics, not Core Web Vitals.
+
+## Product structured data
+
+- **Product snippets:** `name`, plus one of `review`, `aggregateRating` or `offers`.
+  - Offer: `price` (or `priceSpecification.price`) is required; `priceCurrency`, `availability` and `priceValidUntil`
+    are recommended. A `priceValidUntil` in the past suppresses the snippet.
+  - AggregateOffer needs `lowPrice` and `priceCurrency`.
+  - Only pages about a single product are eligible.
+- **Merchant listings:**
+  - Product needs `name`, `image` and `offers`.
+  - Offer needs `price` greater than zero and `priceCurrency`.
+  - Recommended: `availability` (InStock, OutOfStock, PreOrder, BackOrder, …), `itemCondition`, `brand.name`,
+    `gtin*`/`mpn`/`sku`, `description`, `color`, `material`, `aggregateRating`, `review`, `shippingDetails`,
+    `hasMerchantReturnPolicy`.
+  - If `shippingDetails` is present, it needs `shippingDestination`, `shippingRate` and `deliveryTime`.
+- AggregateRating needs `ratingValue` and `ratingCount` or `reviewCount`. Review needs `author`, a `reviewRating`
+  with `ratingValue`, and `itemReviewed` unless nested.
+- Product markup should be in the initial HTML; markup generated by JavaScript makes Shopping crawls less
+  reliable.
+
+## hreflang
+
+- Three equivalent methods: `<link rel="alternate" hreflang>` in `<head>`, HTTP `Link` headers, and sitemap
+  `xhtml:link`.
+- Each version lists itself and every other version.
+- URLs must be fully qualified.
+- Links must be reciprocal: if X lists Y, Y must list X, otherwise the annotations are ignored.
+- Codes: an ISO 639-1 language, optionally followed by an ISO 3166-1 alpha-2 region (`en-GB`, not `en-UK`). A
+  region alone is invalid. `x-default` is reserved for the fallback.
+- Point canonicals at a page in the same language. Clusters should contain canonical, indexable pages (implied by
+  Google's guidance rather than stated).
+
+## Usage-based billing
+
+- Stripe: legacy usage records were removed in API `2025-03-31.basil`. Billing Meters remain supported, but Stripe
+  labels them "not recommended" for new integrations (Metronome is its recommendation).
+- Razorpay: no metered subscriptions; add-ons are deprecated.
+- Surfaced therefore computes usage statements and margins itself and does not charge overages automatically.

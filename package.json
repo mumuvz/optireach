@@ -1,0 +1,61 @@
+{
+  "name": "surfaced",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Surfaced — SEO, AEO and GEO visibility platform (monorepo)",
+  "type": "module",
+  "workspaces": [
+    "packages/shared",
+    "packages/core",
+    "apps/api",
+    "apps/worker",
+    "apps/web"
+  ],
+  "engines": {
+    "node": ">=22.22.0"
+  },
+  "scripts": {
+    "dev": "npm run db:generate && concurrently -k -n api,worker,web -c blue,magenta,green \"npm:dev:api\" \"npm:dev:worker\" \"npm:dev:web\"",
+    "dev:api": "npm run dev -w @surfaced/api",
+    "dev:worker": "npm run dev -w @surfaced/worker",
+    "dev:web": "npm run dev -w @surfaced/web",
+    "build": "npm run db:generate && npm run build -w @surfaced/api -w @surfaced/worker -w @surfaced/web",
+    "start": "concurrently -k -n api,worker -c blue,magenta \"npm:start:api\" \"npm:start:worker\"",
+    "start:api": "npm run start -w @surfaced/api",
+    "start:worker": "npm run start -w @surfaced/worker",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "npm run db:generate && tsc -p tsconfig.json && npm run typecheck --workspaces --if-present",
+    "test": "npm run db:generate && vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "npm run build -w @surfaced/web && playwright test",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:seed": "prisma db seed",
+    "db:seed:reset-demo": "prisma db seed -- --reset-demo",
+    "db:reset": "prisma migrate reset",
+    "db:studio": "prisma studio",
+    "redis:start": "node scripts/dev-redis.mjs",
+    "trends:setup": "node scripts/pytrends-service.mjs setup",
+    "trends:start": "node scripts/pytrends-service.mjs start",
+    "trends:test": "node scripts/pytrends-service.mjs test"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.64.1",
+    "@types/node": "^24.19.2",
+    "concurrently": "^10.0.6",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.13.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.10",
+    "prisma": "~7.10.1",
+    "tsx": "^4.23.15",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.72.0",
+    "vitest": "^5.0.5"
+  }
+}

@@ -1,0 +1,45 @@
+# Optional local infrastructure for development. Start with: docker compose up -d
+# Then set in .env:
+#   DATABASE_URL=mysql://surfaced:surfaced-local@127.0.0.1:3306/surfaced
+#   TEST_DATABASE_URL=mysql://root:root-local@127.0.0.1:3306/surfaced_test   (root can create test databases)
+#   REDIS_URL=redis://127.0.0.1:6379
+# These credentials are for local development only.
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root-local
+      MYSQL_DATABASE: surfaced
+      MYSQL_USER: surfaced
+      MYSQL_PASSWORD: surfaced-local
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    ports:
+      - '127.0.0.1:3306:3306'
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', '127.0.0.1', '-uroot', '-proot-local']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
+    ports:
+      - '127.0.0.1:6379:6379'
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  mysql-data:
+  redis-data:
